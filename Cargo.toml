@@ -1,0 +1,25 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/app",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = []
+description = "A Minecraft-like game built with Bevy"
+
+[workspace.dependencies]
+bevy = { version = "0.15", features = ["dynamic_linking"] }
+log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
+
+# Enable a small amount of optimization in the dev profile.
+[profile.dev]
+opt-level = 1
+codegen-backend = "cranelift"
+
+# Enable a large amount of optimization in the dev profile for dependencies.
+[profile.dev.package."*"]
+opt-level = 3
+codegen-backend = "llvm"
