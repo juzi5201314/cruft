@@ -1,0 +1,10 @@
+[package]
+name = "cruft-ui"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+
+[dependencies]
+bevy.workspace = true
+

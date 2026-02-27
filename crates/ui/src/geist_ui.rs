@@ -1,0 +1,255 @@
+use bevy::prelude::*;
+use bevy::render::render_resource::AsBindGroup;
+use bevy::shader::ShaderRef;
+
+use crate::components::{
+    UiButton, UiButtonLabel, UiButtonStyleOverride, UiButtonVariant, UiCard, UiProgress,
+    UiProgressFill, UiResponsiveFlex,
+};
+use crate::events::UiClick;
+use crate::theme::UiTheme;
+
+/// Cruft 默认 UI 插件：语义组件 + Geist 皮肤 + Observers 点击事件。
+pub struct CruftUiPlugin;
+
+impl Plugin for CruftUiPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(UiMaterialPlugin::<GeistGridMaterial>::default())
+            .insert_resource(UiTheme::geist_light())
+            .add_systems(
+                Update,
+                (
+                    emit_ui_click,
+                    apply_geist_button_skin,
+                    apply_geist_card_skin,
+                    apply_geist_progress_skin,
+                    update_progress_fill,
+                    update_responsive_flex,
+                ),
+            );
+    }
+}
+
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone, Copy)]
+pub struct GeistGridMaterial {
+    #[uniform(0)]
+    pub color: LinearRgba,
+    #[uniform(0)]
+    pub grid_color: LinearRgba,
+    #[uniform(0)]
+    pub spacing: f32,
+    #[uniform(0)]
+    pub thickness: f32,
+}
+
+impl UiMaterial for GeistGridMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/geist_grid.wgsl".into()
+    }
+}
+
+fn emit_ui_click(
+    mut commands: Commands,
+    query: Query<(Entity, &Interaction), (With<UiButton>, Changed<Interaction>)>,
+) {
+    for (entity, interaction) in &query {
+        if *interaction == Interaction::Pressed {
+            commands.trigger(UiClick { entity });
+        }
+    }
+}
+
+fn apply_geist_button_skin(
+    mut commands: Commands,
+    theme: Res<UiTheme>,
+    mut buttons: Query<(
+        Entity,
+        &UiButton,
+        &Interaction,
+        &mut Node,
+        Option<&mut BackgroundColor>,
+        Option<&mut BorderColor>,
+        Option<&mut Outline>,
+        Option<&UiButtonStyleOverride>,
+        &Children,
+    )>,
+    mut labels: Query<&mut TextColor, With<UiButtonLabel>>,
+) {
+    for (entity, button, interaction, mut node, bg, border, outline, styles, children) in
+        &mut buttons
+    {
+        let (mut bg_color, mut fg_color, mut border_color) = match button.variant {
+            UiButtonVariant::Primary => (theme.primary_bg, theme.primary_fg, theme.primary_bg),
+            UiButtonVariant::Secondary => (theme.secondary_bg, theme.secondary_fg, theme.border),
+            UiButtonVariant::Ghost => (Color::NONE, theme.fg, Color::NONE),
+        };
+
+        match *interaction {
+            Interaction::Pressed => {
+                bg_color = bg_color.with_alpha(0.85);
+            }
+            Interaction::Hovered => match button.variant {
+                UiButtonVariant::Primary => bg_color = bg_color.with_alpha(0.9),
+                UiButtonVariant::Secondary | UiButtonVariant::Ghost => bg_color = theme.accent,
+            },
+            Interaction::None => {}
+        }
+
+        let radius = styles.and_then(|s| s.radius).unwrap_or(theme.radius);
+        node.border_radius = BorderRadius::all(Val::Px(radius));
+
+        if let Some(styles) = styles {
+            if let Some(bg) = styles.bg {
+                bg_color = bg;
+            }
+            if let Some(fg) = styles.fg {
+                fg_color = fg;
+            }
+            if let Some(border) = styles.border {
+                border_color = border;
+            }
+        }
+
+        if let Some(mut bg) = bg {
+            bg.0 = bg_color;
+        } else {
+            commands.entity(entity).insert(BackgroundColor(bg_color));
+        }
+
+        if let Some(mut border) = border {
+            *border = BorderColor::all(border_color);
+        } else {
+            commands
+                .entity(entity)
+                .insert(BorderColor::all(border_color));
+        }
+
+        if let Some(mut outline) = outline {
+            outline.color = if *interaction == Interaction::Hovered {
+                theme.fg.with_alpha(0.1)
+            } else {
+                Color::NONE
+            };
+        }
+
+        for child in children.iter() {
+            if let Ok(mut text_color) = labels.get_mut(child) {
+                text_color.0 = fg_color;
+            }
+        }
+    }
+}
+
+fn apply_geist_card_skin(
+    mut commands: Commands,
+    theme: Res<UiTheme>,
+    mut cards: Query<
+        (
+            Entity,
+            &mut Node,
+            Option<&mut BackgroundColor>,
+            Option<&mut BorderColor>,
+            Option<&BoxShadow>,
+        ),
+        With<UiCard>,
+    >,
+) {
+    let theme_dirty = theme.is_changed();
+
+    for (entity, mut node, bg, border, shadow) in &mut cards {
+        let needs_init = bg.is_none() || border.is_none() || shadow.is_none();
+        if !needs_init && !theme_dirty {
+            continue;
+        }
+
+        node.border_radius = BorderRadius::all(Val::Px(theme.radius));
+
+        if let Some(mut bg) = bg {
+            bg.0 = theme.bg;
+        } else {
+            commands.entity(entity).insert(BackgroundColor(theme.bg));
+        }
+
+        if let Some(mut border) = border {
+            *border = BorderColor::all(theme.border);
+        } else {
+            commands
+                .entity(entity)
+                .insert(BorderColor::all(theme.border));
+        }
+
+        if shadow.is_none() || theme_dirty {
+            commands.entity(entity).insert(BoxShadow::new(
+                Color::srgba(0.0, 0.0, 0.0, 0.05),
+                Val::Px(0.0),
+                Val::Px(1.0),
+                Val::Px(2.0),
+                Val::Px(0.0),
+            ));
+        }
+    }
+}
+
+fn apply_geist_progress_skin(
+    mut commands: Commands,
+    theme: Res<UiTheme>,
+    progresses: Query<(Entity, &Children, Option<&BackgroundColor>), With<UiProgress>>,
+    fills: Query<Option<&BackgroundColor>, With<UiProgressFill>>,
+) {
+    let theme_dirty = theme.is_changed();
+
+    for (entity, children, bg) in &progresses {
+        if bg.is_none() || theme_dirty {
+            commands
+                .entity(entity)
+                .insert(BackgroundColor(theme.border));
+        }
+        for child in children.iter() {
+            if let Ok(fill_bg) = fills.get(child) {
+                if fill_bg.is_none() || theme_dirty {
+                    commands
+                        .entity(child)
+                        .insert(BackgroundColor(theme.primary_bg));
+                }
+            }
+        }
+    }
+}
+
+fn update_progress_fill(
+    progresses: Query<(&UiProgress, &Children), Changed<UiProgress>>,
+    mut nodes: Query<&mut Node>,
+    fills: Query<(), With<UiProgressFill>>,
+) {
+    for (progress, children) in &progresses {
+        for child in children.iter() {
+            if !fills.contains(child) {
+                continue;
+            }
+            if let Ok(mut node) = nodes.get_mut(child) {
+                node.width = Val::Percent(progress.value.clamp(0.0, 1.0) * 100.0);
+            }
+        }
+    }
+}
+
+fn update_responsive_flex(
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    mut query: Query<(&UiResponsiveFlex, &mut Node)>,
+) {
+    let Ok(window) = windows.single() else {
+        return;
+    };
+    let width = window.resolution.width();
+
+    for (responsive, mut node) in &mut query {
+        let target = if width < responsive.breakpoint_px {
+            responsive.narrow
+        } else {
+            responsive.wide
+        };
+        if node.flex_direction != target {
+            node.flex_direction = target;
+        }
+    }
+}
