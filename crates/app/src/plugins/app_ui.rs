@@ -59,14 +59,7 @@ fn spawn_loading_screen(
         .with_children(|parent| {
             let mut ui = UiBuilder::new(parent, &theme);
             ui.card(|ui| {
-                ui.spawn((
-                    Text::new("Loading…"),
-                    TextFont {
-                        font_size: 16.0,
-                        ..default()
-                    },
-                    TextColor(ui.theme().fg),
-                ));
+                ui.label_semibold("Loading…");
 
                 ui.spawn(Node {
                     height: Val::Px(16.0),
@@ -96,7 +89,6 @@ fn tick_loading(
     let t = delay.0.fraction().clamp(0.0, 1.0);
 
     for mut p in &mut progress {
-        // 开发示例：用 1s 的 timer 模拟加载进度
         p.value = t;
     }
 
@@ -144,14 +136,8 @@ fn spawn_main_menu(
                         ..default()
                     })
                     .with_children(|p| {
-                        p.spawn((
-                            Text::new("Cruft"),
-                            TextFont {
-                                font_size: 24.0,
-                                ..default()
-                            },
-                            TextColor(theme.fg),
-                        ));
+                         let mut ui = UiBuilder::new(p, &theme);
+                         ui.label_semibold("Cruft");
                     });
 
                     ui.spawn(Node {
@@ -164,11 +150,13 @@ fn spawn_main_menu(
                     .with_children(|p| {
                         let mut ui = UiBuilder::new(p, &theme);
                         ui.button(cruft_ui::UiButtonVariant::Primary, |ui| {
+                            ui.icon('\u{e9b2}'); // Play icon
                             ui.label("Start");
                         })
                         .size(Val::Px(160.0), Val::Px(60.0));
 
                         ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
+                            ui.icon('\u{e9bb}'); // Menu icon
                             ui.label("Menu");
                         })
                         .size(Val::Px(160.0), Val::Px(60.0));
@@ -205,7 +193,6 @@ fn despawn_screen_roots(
     roots: Query<Entity, (With<ScreenRoot>, Without<ChildOf>)>,
 ) {
     for root in &roots {
-        // Bevy v0.18 的 ChildOf/Children 关系会在父实体 despawn 时自动级联 despawn 子孙。
         commands.entity(root).despawn();
     }
 }

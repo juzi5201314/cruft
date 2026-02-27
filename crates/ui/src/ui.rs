@@ -68,6 +68,8 @@ impl<'a, 'w, 't> UiBuilder<'a, 'w, 't> {
                 border_radius: BorderRadius::all(px(radius)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
+                column_gap: px(8.0),
+                flex_direction: FlexDirection::Row,
                 ..default()
             },
             Outline::new(px(2.0), px(2.0), Color::NONE),
@@ -79,14 +81,45 @@ impl<'a, 'w, 't> UiBuilder<'a, 'w, 't> {
         entity
     }
 
-    /// Atomic label using the theme's foreground color.
+    /// Atomic label using Geist Sans.
     pub fn label(&mut self, text: impl Into<String>) -> EntityCommands<'_> {
+        self.label_styled(text, self.theme.fonts.sans.clone(), 14.0)
+    }
+
+    /// Atomic label using Geist Sans Semibold.
+    pub fn label_semibold(&mut self, text: impl Into<String>) -> EntityCommands<'_> {
+        self.label_styled(text, self.theme.fonts.sans_semibold.clone(), 14.0)
+    }
+
+    /// Atomic label using Geist Mono.
+    pub fn label_mono(&mut self, text: impl Into<String>) -> EntityCommands<'_> {
+        self.label_styled(text, self.theme.fonts.mono.clone(), 13.0)
+    }
+
+    fn label_styled(&mut self, text: impl Into<String>, font: Handle<Font>, size: f32) -> EntityCommands<'_> {
         let fg = self.theme.fg;
         self.parent.spawn((
             UiButtonLabel,
             Text::new(text),
             TextFont {
-                font_size: 14.0,
+                font,
+                font_size: size,
+                ..default()
+            },
+            TextColor(fg),
+        ))
+    }
+
+    /// Atomic icon using Lucide icon font.
+    pub fn icon(&mut self, code: char) -> EntityCommands<'_> {
+        let fg = self.theme.fg;
+        let font = self.theme.fonts.icons.clone();
+        self.parent.spawn((
+            UiButtonLabel,
+            Text::new(code.to_string()),
+            TextFont {
+                font,
+                font_size: 16.0,
                 ..default()
             },
             TextColor(fg),

@@ -7,7 +7,7 @@ use crate::components::{
     UiProgressFill, UiResponsiveFlex,
 };
 use crate::events::UiClick;
-use crate::theme::UiTheme;
+use crate::theme::{UiFontResources, UiTheme};
 
 /// Cruft 默认 UI 插件：语义组件 + Geist 皮肤 + Observers 点击事件。
 pub struct CruftUiPlugin;
@@ -15,7 +15,7 @@ pub struct CruftUiPlugin;
 impl Plugin for CruftUiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(UiMaterialPlugin::<GeistGridMaterial>::default())
-            .insert_resource(UiTheme::geist_light())
+            .add_systems(Startup, setup_ui_theme)
             .add_systems(
                 Update,
                 (
@@ -28,6 +28,16 @@ impl Plugin for CruftUiPlugin {
                 ),
             );
     }
+}
+
+fn setup_ui_theme(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let fonts = UiFontResources {
+        sans: asset_server.load("fonts/Geist-Regular.ttf"),
+        sans_semibold: asset_server.load("fonts/Geist-SemiBold.ttf"),
+        mono: asset_server.load("fonts/GeistMono-Regular.ttf"),
+        icons: asset_server.load("icons/lucide.ttf"),
+    };
+    commands.insert_resource(UiTheme::geist_light(fonts));
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone, Copy)]

@@ -1,5 +1,14 @@
 use bevy::prelude::*;
 
+/// UI 字体资源句柄。
+#[derive(Resource, Debug, Clone, Default)]
+pub struct UiFontResources {
+    pub sans: Handle<Font>,
+    pub sans_semibold: Handle<Font>,
+    pub mono: Handle<Font>,
+    pub icons: Handle<Font>,
+}
+
 /// UI 主题 Token（默认实现为 Geist 风格）。
 #[derive(Resource, Debug, Clone)]
 pub struct UiTheme {
@@ -13,10 +22,11 @@ pub struct UiTheme {
     pub secondary_bg: Color,
     pub secondary_fg: Color,
     pub radius: f32,
+    pub fonts: UiFontResources,
 }
 
 impl UiTheme {
-    pub fn geist_light() -> Self {
+    pub fn geist_light(fonts: UiFontResources) -> Self {
         Self {
             bg: Color::WHITE,
             fg: Color::BLACK,
@@ -28,10 +38,11 @@ impl UiTheme {
             secondary_bg: Color::WHITE,
             secondary_fg: Color::BLACK,
             radius: 8.0,
+            fonts,
         }
     }
 
-    pub fn geist_dark() -> Self {
+    pub fn geist_dark(fonts: UiFontResources) -> Self {
         Self {
             bg: Color::BLACK,
             fg: Color::WHITE,
@@ -43,6 +54,7 @@ impl UiTheme {
             secondary_bg: Color::BLACK,
             secondary_fg: Color::WHITE,
             radius: 8.0,
+            fonts,
         }
     }
 }
