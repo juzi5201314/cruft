@@ -11,7 +11,7 @@ authors = []
 description = "A Minecraft-like game built with Bevy"
 
 [workspace.dependencies]
-bevy = { version = "0.15", features = ["dynamic_linking"] }
+bevy = { version = "0.18", features = ["dynamic_linking"] }
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
 
 # Enable a small amount of optimization in the dev profile.
