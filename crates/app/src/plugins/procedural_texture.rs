@@ -1,6 +1,7 @@
 //! 程序化贴图（GPU / texture array）生成插件。
 
 use std::borrow::Cow;
+use std::time::Instant;
 
 use bevy::{
     asset::RenderAssetUsages,
@@ -42,6 +43,7 @@ impl Plugin for ProceduralTexturePlugin {
         app.add_plugins((
             ExtractResourcePlugin::<ProceduralTextureImages>::default(),
             ExtractResourcePlugin::<ProceduralTextureArrayParams>::default(),
+            ExtractResourcePlugin::<ProceduralTextureGenerationMetrics>::default(),
         ));
         app.init_asset::<TextureDataAsset>()
             .init_asset_loader::<TextureDataLoader>()
@@ -137,6 +139,13 @@ fn setup_procedural_textures_from_data(
         let byte_len = pixel_size * image.texture_descriptor.size.volume() as usize;
         data.resize(byte_len, 0);
     }
+    commands.insert_resource(ProceduralTextureGenerationMetrics {
+        started_at: Instant::now(),
+        texture_size: image.texture_descriptor.size,
+        texture_format: image.texture_descriptor.format,
+        mip_level_count: image.texture_descriptor.mip_level_count.max(1),
+        texture_dimension: image.texture_descriptor.dimension,
+    });
     let texture = images.add(image);
 
     commands.insert_resource(ProceduralTextureImages {
@@ -171,6 +180,15 @@ struct TextureDataHandle(Handle<TextureDataAsset>);
 #[derive(Resource, Clone, ExtractResource)]
 struct ProceduralTextureImages {
     array: Handle<Image>,
+}
+
+#[derive(Resource, Clone, ExtractResource)]
+struct ProceduralTextureGenerationMetrics {
+    started_at: Instant,
+    texture_size: Extent3d,
+    texture_format: TextureFormat,
+    mip_level_count: u32,
+    texture_dimension: TextureDimension,
 }
 
 #[derive(Resource, Clone, ExtractResource, ShaderType)]
@@ -460,6 +478,27 @@ impl render_graph::Node for ProceduralTextureNode {
                 }
             }
             ProceduralTextureNodeState::Dispatching => {
+                if let Some(metrics) = world.get_resource::<ProceduralTextureGenerationMetrics>() {
+                    let elapsed = metrics.started_at.elapsed();
+                    let bytes = estimate_texture_vram_bytes(
+                        metrics.texture_size,
+                        metrics.texture_dimension,
+                        metrics.texture_format,
+                        metrics.mip_level_count,
+                    );
+                    log::info!(
+                        "程序化纹理生成完成：耗时={elapsed:?}，显存占用≈{}（{} bytes），纹理={}×{}@{} mip={} format={:?}",
+                        format_bytes(bytes),
+                        bytes,
+                        metrics.texture_size.width,
+                        metrics.texture_size.height,
+                        metrics.texture_size.depth_or_array_layers,
+                        metrics.mip_level_count,
+                        metrics.texture_format,
+                    );
+                } else {
+                    log::warn!("程序化纹理生成完成，但缺少统计信息（ProceduralTextureGenerationMetrics）");
+                }
                 self.state = ProceduralTextureNodeState::Done;
             }
             ProceduralTextureNodeState::Done => {}
@@ -511,5 +550,57 @@ impl render_graph::Node for ProceduralTextureNode {
         pass.dispatch_workgroups(x_workgroups, y_workgroups, layer_workgroups);
 
         Ok(())
+    }
+}
+
+fn estimate_texture_vram_bytes(
+    size: Extent3d,
+    dimension: TextureDimension,
+    format: TextureFormat,
+    mip_level_count: u32,
+) -> u64 {
+    let pixel_size = match format.pixel_size() {
+        Ok(pixel_size) => pixel_size,
+        Err(_) => return 0,
+    };
+
+    let mut width = size.width.max(1);
+    let mut height = size.height.max(1);
+    let mut depth_or_layers = size.depth_or_array_layers.max(1);
+
+    let mut total = 0u64;
+    let mip_count = mip_level_count.max(1);
+    for _ in 0..mip_count {
+        total = total.saturating_add(
+            u64::from(width)
+                * u64::from(height)
+                * u64::from(depth_or_layers)
+                * pixel_size as u64,
+        );
+
+        width = (width / 2).max(1);
+        height = (height / 2).max(1);
+        if matches!(dimension, TextureDimension::D3) {
+            depth_or_layers = (depth_or_layers / 2).max(1);
+        }
+    }
+
+    total
+}
+
+fn format_bytes(bytes: u64) -> String {
+    const KIB: f64 = 1024.0;
+    const MIB: f64 = 1024.0 * 1024.0;
+    const GIB: f64 = 1024.0 * 1024.0 * 1024.0;
+
+    let b = bytes as f64;
+    if b >= GIB {
+        format!("{:.2} GiB", b / GIB)
+    } else if b >= MIB {
+        format!("{:.2} MiB", b / MIB)
+    } else if b >= KIB {
+        format!("{:.2} KiB", b / KIB)
+    } else {
+        format!("{bytes} B")
     }
 }
