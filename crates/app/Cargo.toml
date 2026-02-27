@@ -8,6 +8,7 @@ description.workspace = true
 [dependencies]
 bevy.workspace = true
 bevy_embedded_assets.workspace = true
+cruft-ui = { path = "../ui" }
 log.workspace = true
 serde.workspace = true
 serde_json.workspace = true
