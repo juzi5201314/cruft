@@ -21,12 +21,13 @@ struct Params {
 @group(0) @binding(0) var out_tex: texture_storage_2d_array<rgba8unorm, write>;
 @group(0) @binding(1) var<uniform> params: Params;
 
-fn hash_u32(mut x: u32) -> u32 {
+fn hash_u32(x: u32) -> u32 {
     // xorshift32
-    x = x ^ (x << 13u);
-    x = x ^ (x >> 17u);
-    x = x ^ (x << 5u);
-    return x;
+    var v = x;
+    v = v ^ (v << 13u);
+    v = v ^ (v >> 17u);
+    v = v ^ (v << 5u);
+    return v;
 }
 
 fn hash2(ix: u32, iy: u32, seed: u32) -> f32 {

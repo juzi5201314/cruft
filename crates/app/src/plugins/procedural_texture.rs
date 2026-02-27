@@ -5,6 +5,7 @@ use std::borrow::Cow;
 use bevy::{
     asset::RenderAssetUsages,
     asset::{io::Reader, LoadContext},
+    image::{TextureFormatPixelInfo, Volume},
     mesh::MeshTag,
     prelude::*,
     reflect::TypePath,
@@ -57,14 +58,14 @@ impl Plugin for ProceduralTexturePlugin {
 
         let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
         render_graph.add_node(ProceduralTextureLabel, ProceduralTextureNode::default());
-        render_graph.add_node_edge(ProceduralTextureLabel, bevy::render::graph::CameraDriverLabel);
+        render_graph.add_node_edge(
+            ProceduralTextureLabel,
+            bevy::render::graph::CameraDriverLabel,
+        );
     }
 }
 
-fn setup_procedural_texture_scene(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+fn setup_procedural_texture_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(TextureDataHandle(asset_server.load(TEXTURE_DATA_PATH)));
 
     commands.spawn((
@@ -127,6 +128,15 @@ fn setup_procedural_textures_from_data(
         dimension: Some(TextureViewDimension::D2Array),
         ..default()
     });
+    if let Some(data) = image.data.as_mut() {
+        let pixel_size = image
+            .texture_descriptor
+            .format
+            .pixel_size()
+            .expect("ProceduralTexture output image format must have a known pixel size");
+        let byte_len = pixel_size * image.texture_descriptor.size.volume() as usize;
+        data.resize(byte_len, 0);
+    }
     let texture = images.add(image);
 
     commands.insert_resource(ProceduralTextureImages {
@@ -436,19 +446,19 @@ impl render_graph::Node for ProceduralTextureNode {
         let pipeline = world.resource::<ProceduralTexturePipeline>();
 
         match self.state {
-            ProceduralTextureNodeState::Loading => match pipeline_cache
-                .get_compute_pipeline_state(pipeline.pipeline)
-            {
-                CachedPipelineState::Ok(_) => {
-                    dispatch = true;
-                    self.state = ProceduralTextureNodeState::Dispatching;
+            ProceduralTextureNodeState::Loading => {
+                match pipeline_cache.get_compute_pipeline_state(pipeline.pipeline) {
+                    CachedPipelineState::Ok(_) => {
+                        dispatch = true;
+                        self.state = ProceduralTextureNodeState::Dispatching;
+                    }
+                    CachedPipelineState::Err(PipelineCacheError::ShaderNotLoaded(_)) => {}
+                    CachedPipelineState::Err(err) => {
+                        panic!("Initializing assets/{SHADER_ASSET_PATH}:\n{err}")
+                    }
+                    _ => {}
                 }
-                CachedPipelineState::Err(PipelineCacheError::ShaderNotLoaded(_)) => {}
-                CachedPipelineState::Err(err) => {
-                    panic!("Initializing assets/{SHADER_ASSET_PATH}:\n{err}")
-                }
-                _ => {}
-            },
+            }
             ProceduralTextureNodeState::Dispatching => {
                 self.state = ProceduralTextureNodeState::Done;
             }
