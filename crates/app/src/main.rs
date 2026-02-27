@@ -1,14 +1,12 @@
 use bevy::asset::AssetPlugin;
 use bevy::prelude::*;
-use bevy_embedded_assets::{EmbeddedAssetPlugin, PluginMode};
 
 mod plugins;
 
 fn main() {
     App::new()
-        .add_plugins(EmbeddedAssetPlugin {
-            mode: PluginMode::ReplaceDefault,
-        })
+        // CruftUiAssetsPlugin handles EmbeddedAssetPlugin for the UI crate
+        .add_plugins(cruft_ui::CruftUiAssetsPlugin)
         .add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {
