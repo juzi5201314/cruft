@@ -31,13 +31,12 @@ fn setup(mut commands: Commands, theme: Res<UiTheme>) {
         height: Val::Percent(100.0),
         ..default()
     }).with_children(|parent| {
-        cruft_ui::ui::card(parent, &theme)
-            .size(Val::Px(300.0), Val::Auto)
-            .with_children(|p, theme| {
-                cruft_ui::ui::button(p, theme)
-                    .text("Deploy")
-                    .variant(UiButtonVariant::Primary);
+        let mut ui = cruft_ui::ui::UiBuilder::new(parent, &theme);
+        ui.card(|ui| {
+            ui.button(UiButtonVariant::Primary, |ui| {
+                ui.label("Deploy");
             });
+        }).size(Val::Px(300.0), Val::Auto);
     });
 }
 ```
@@ -45,12 +44,8 @@ fn setup(mut commands: Commands, theme: Res<UiTheme>) {
 ### Progress (进度条)
 展示任务完成度，支持动态更新。
 ```rust
-cruft_ui::ui::progress(
-    parent,
-    &theme,
-    0.5, // 初始进度 (0.0 - 1.0)
-    Val::Px(400.0),
-);
+let mut ui = cruft_ui::ui::UiBuilder::new(parent, &theme);
+ui.progress(0.5, Val::Px(400.0));
 ```
 
 ---
