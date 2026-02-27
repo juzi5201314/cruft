@@ -78,10 +78,12 @@ fn apply_geist_button_skin(
     for (entity, button, interaction, mut node, bg, border, outline, styles, children) in
         &mut buttons
     {
-        let (mut bg_color, mut fg_color, mut border_color) = match button.variant {
-            UiButtonVariant::Primary => (theme.primary_bg, theme.primary_fg, theme.primary_bg),
-            UiButtonVariant::Secondary => (theme.secondary_bg, theme.secondary_fg, theme.border),
-            UiButtonVariant::Ghost => (Color::NONE, theme.fg, Color::NONE),
+        let (mut bg_color, mut fg_color, mut border_color, border_width) = match button.variant {
+            UiButtonVariant::Primary => (theme.primary_bg, theme.primary_fg, Color::NONE, 0.0),
+            UiButtonVariant::Secondary => {
+                (theme.secondary_bg, theme.secondary_fg, theme.border, 1.0)
+            }
+            UiButtonVariant::Ghost => (Color::NONE, theme.fg, Color::NONE, 0.0),
         };
 
         match *interaction {
@@ -89,7 +91,7 @@ fn apply_geist_button_skin(
                 bg_color = bg_color.with_alpha(0.85);
             }
             Interaction::Hovered => match button.variant {
-                UiButtonVariant::Primary => bg_color = bg_color.with_alpha(0.9),
+                UiButtonVariant::Primary => bg_color = bg_color.with_alpha(0.95),
                 UiButtonVariant::Secondary | UiButtonVariant::Ghost => bg_color = theme.accent,
             },
             Interaction::None => {}
@@ -97,6 +99,7 @@ fn apply_geist_button_skin(
 
         let radius = styles.and_then(|s| s.radius).unwrap_or(theme.radius);
         node.border_radius = BorderRadius::all(Val::Px(radius));
+        node.border = UiRect::all(Val::Px(border_width));
 
         if let Some(styles) = styles {
             if let Some(bg) = styles.bg {
@@ -107,6 +110,7 @@ fn apply_geist_button_skin(
             }
             if let Some(border) = styles.border {
                 border_color = border;
+                node.border = UiRect::all(Val::Px(1.0));
             }
         }
 
@@ -126,7 +130,7 @@ fn apply_geist_button_skin(
 
         if let Some(mut outline) = outline {
             outline.color = if *interaction == Interaction::Hovered {
-                theme.fg.with_alpha(0.1)
+                theme.fg.with_alpha(0.15)
             } else {
                 Color::NONE
             };

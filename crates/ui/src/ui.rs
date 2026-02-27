@@ -76,8 +76,8 @@ pub fn button<'a>(parent: &'a mut ChildSpawnerCommands, theme: &'a UiTheme) -> B
             variant: UiButtonVariant::Primary,
         },
         Node {
-            padding: UiRect::axes(px(16.0), px(8.0)),
-            border: UiRect::all(px(1.0)),
+            padding: UiRect::axes(px(20.0), px(12.0)),
+            border: UiRect::all(px(0.0)),
             border_radius: BorderRadius::all(px(theme.radius)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
@@ -227,7 +227,7 @@ pub fn card<'a>(parent: &'a mut ChildSpawnerCommands, theme: &'a UiTheme) -> Car
     let card = parent.spawn((
         UiCard,
         Node {
-            padding: UiRect::all(px(24.0)),
+            padding: UiRect::all(px(32.0)),
             border: UiRect::all(px(1.0)),
             border_radius: BorderRadius::all(px(theme.radius)),
             flex_direction: FlexDirection::Column,

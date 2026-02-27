@@ -22,7 +22,7 @@ impl UiTheme {
             fg: Color::BLACK,
             muted_fg: Color::srgb(0.4, 0.4, 0.4),
             border: Color::srgb(0.92, 0.92, 0.92),
-            accent: Color::srgb(0.98, 0.98, 0.98),
+            accent: Color::srgb(0.94, 0.94, 0.94),
             primary_bg: Color::BLACK,
             primary_fg: Color::WHITE,
             secondary_bg: Color::WHITE,
