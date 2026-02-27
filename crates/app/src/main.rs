@@ -1,12 +1,10 @@
 use bevy::prelude::*;
 
+mod plugins;
+
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugins(plugins::ProceduralTexturePlugin)
         .run();
-}
-
-fn setup() {
-    // TODO: 初始化游戏场景
 }
