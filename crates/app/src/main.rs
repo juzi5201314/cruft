@@ -167,45 +167,53 @@ fn spawn_main_menu(
         ))
         .with_children(|parent| {
             cruft_ui::ui::card(parent, &theme)
-                .size(Val::Px(460.0), Val::Auto)
+                .size(Val::Px(520.0), Val::Px(520.0))
                 .with_children(|p, theme| {
-                    p.spawn((
-                        Text::new("Cruft"),
-                        TextFont {
-                            font_size: 24.0,
-                            ..default()
-                        },
-                        TextColor(theme.fg),
-                    ));
-
                     p.spawn(Node {
-                        height: Val::Px(16.0),
-                        ..default()
-                    });
-
-                    let mut buttons = p.spawn(Node {
                         width: Val::Percent(100.0),
-                        flex_direction: FlexDirection::Row,
-                        justify_content: JustifyContent::SpaceBetween,
+                        height: Val::Percent(100.0),
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        column_gap: Val::Px(12.0),
-                        row_gap: Val::Px(12.0),
+                        row_gap: Val::Px(36.0),
                         ..default()
-                    });
-                    cruft_ui::ui::responsive_flex(
-                        &mut buttons,
-                        520.0,
-                        FlexDirection::Column,
-                        FlexDirection::Row,
-                    );
+                    })
+                    .with_children(|p| {
+                        p.spawn(Node {
+                            width: Val::Percent(100.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        })
+                        .with_children(|p| {
+                            p.spawn((
+                                Text::new("Cruft"),
+                                TextFont {
+                                    font_size: 24.0,
+                                    ..default()
+                                },
+                                TextColor(theme.fg),
+                            ));
+                        });
 
-                    buttons.with_children(|row| {
-                        cruft_ui::ui::button(row, theme)
-                            .text("Start")
-                            .variant(cruft_ui::UiButtonVariant::Primary);
-                        cruft_ui::ui::button(row, theme)
-                            .text("Menu")
-                            .variant(cruft_ui::UiButtonVariant::Secondary);
+                        p.spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            row_gap: Val::Px(24.0),
+                            ..default()
+                        })
+                        .with_children(|p| {
+                            cruft_ui::ui::button(p, theme)
+                                .text("Start")
+                                .variant(cruft_ui::UiButtonVariant::Primary)
+                                .size(Val::Px(240.0), Val::Px(56.0));
+
+                            cruft_ui::ui::button(p, theme)
+                                .text("Menu")
+                                .variant(cruft_ui::UiButtonVariant::Secondary)
+                                .size(Val::Px(240.0), Val::Px(56.0));
+                        });
                     });
                 });
         });
