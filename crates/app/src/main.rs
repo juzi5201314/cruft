@@ -83,7 +83,7 @@ fn spawn_loading_screen(
         ))
         .with_children(|parent| {
             cruft_ui::ui::card(parent, &theme)
-                .size(Val::Px(420.0), Val::Auto)
+                .size(Val::Px(360.0), Val::Auto)
                 .with_children(|p, theme| {
                     p.spawn((
                         Text::new("Loading…"),
@@ -99,7 +99,7 @@ fn spawn_loading_screen(
                         ..default()
                     });
 
-                    cruft_ui::ui::progress(p, theme, 0.0, Val::Px(360.0))
+                    cruft_ui::ui::progress(p, theme, 0.0, Val::Px(280.0))
                         .insert(LoadingProgressBar);
 
                     p.spawn(Node {
@@ -167,15 +167,14 @@ fn spawn_main_menu(
         ))
         .with_children(|parent| {
             cruft_ui::ui::card(parent, &theme)
-                .size(Val::Px(520.0), Val::Px(520.0))
+                .size(Val::Px(360.0), Val::Auto)
                 .with_children(|p, theme| {
                     p.spawn(Node {
                         width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        row_gap: Val::Px(36.0),
+                        row_gap: Val::Px(32.0),
                         ..default()
                     })
                     .with_children(|p| {
@@ -200,19 +199,19 @@ fn spawn_main_menu(
                             flex_direction: FlexDirection::Column,
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
-                            row_gap: Val::Px(24.0),
+                            row_gap: Val::Px(20.0),
                             ..default()
                         })
                         .with_children(|p| {
                             cruft_ui::ui::button(p, theme)
                                 .text("Start")
                                 .variant(cruft_ui::UiButtonVariant::Primary)
-                                .size(Val::Px(240.0), Val::Px(56.0));
+                                .size(Val::Px(160.0), Val::Px(60.0));
 
                             cruft_ui::ui::button(p, theme)
                                 .text("Menu")
                                 .variant(cruft_ui::UiButtonVariant::Secondary)
-                                .size(Val::Px(240.0), Val::Px(56.0));
+                                .size(Val::Px(160.0), Val::Px(60.0));
                         });
                     });
                 });
