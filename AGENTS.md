@@ -50,3 +50,7 @@ crates/
 ## 测试
 
 使用 `cargo nextest run --color=never` 进行测试，而非 `cargo test`。
+
+## 平台
+
+- 如果当前环境在wsl(windows subsystem for linux)中，则使用`--target x86_64-pc-windows-gnu`，不要在wsl中使用linux目标。
