@@ -1,8 +1,12 @@
 #import bevy_pbr::forward_io::{FragmentOutput, VertexOutput}
 #import bevy_pbr::mesh_bindings::mesh
 
-@group(2) @binding(0) var array_texture: texture_2d_array<f32>;
-@group(2) @binding(1) var array_sampler: sampler;
+// Bevy PBR forward pipeline bind groups:
+// - group(0): view / lights
+// - group(2): mesh bindings
+// - group(3): material bindings (see bevy_pbr::MATERIAL_BIND_GROUP_INDEX)
+@group(3) @binding(0) var array_texture: texture_2d_array<f32>;
+@group(3) @binding(1) var array_sampler: sampler;
 
 @fragment
 fn fragment(in: VertexOutput) -> FragmentOutput {
@@ -23,4 +27,3 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
     out.color = color;
     return out;
 }
-
