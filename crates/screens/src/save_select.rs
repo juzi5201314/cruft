@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy::state::state_scoped::DespawnOnExit;
 
 use cruft_game_flow::{FlowRequest, FrontEndState};
-use cruft_save::{SaveIndex, SaveOpRequest, SaveOpResult, SaveId};
+use cruft_save::{SaveIndex, SaveOpRequest, SaveOpResult};
 use cruft_ui::ui::{UiBuilder, UiEntityCommandsExt};
 
 use crate::common::spawn_grid_background;
@@ -65,7 +65,10 @@ struct SaveSelectModalRoot;
 #[derive(Component)]
 struct SaveSelectModalTextInput;
 
-fn reset_save_select_state(mut state: ResMut<SaveSelectState>, mut spawned: ResMut<SpawnedModalKind>) {
+fn reset_save_select_state(
+    mut state: ResMut<SaveSelectState>,
+    mut spawned: ResMut<SpawnedModalKind>,
+) {
     *state = SaveSelectState::default();
     spawned.0 = None;
 }
@@ -247,14 +250,18 @@ fn update_selection_styles(
 ) {
     for (entity, id) in &items {
         if state.selected.as_deref() == Some(id.0.as_str()) {
-            commands.entity(entity).insert(cruft_ui::UiButtonStyleOverride {
-                bg: Some(theme.accent),
-                fg: None,
-                border: None,
-                radius: None,
-            });
+            commands
+                .entity(entity)
+                .insert(cruft_ui::UiButtonStyleOverride {
+                    bg: Some(theme.accent),
+                    fg: None,
+                    border: None,
+                    radius: None,
+                });
         } else {
-            commands.entity(entity).remove::<cruft_ui::UiButtonStyleOverride>();
+            commands
+                .entity(entity)
+                .remove::<cruft_ui::UiButtonStyleOverride>();
         }
     }
 }
@@ -295,18 +302,24 @@ fn sync_modal(
 
 fn spawn_new_modal(commands: &mut Commands, root: Entity, theme: &cruft_ui::UiTheme) {
     commands.entity(root).with_children(|parent| {
-                let mut ui = UiBuilder::new(parent, theme);
+        let mut ui = UiBuilder::new(parent, theme);
         ui.modal(|ui| {
             ui.card(|ui| {
                 ui.label_semibold("New Save");
-                ui.spawn(Node { height: Val::Px(12.0), ..default() });
+                ui.spawn(Node {
+                    height: Val::Px(12.0),
+                    ..default()
+                });
 
                 let mut input = ui.text_input("", "Save name", Val::Px(320.0));
                 input.insert(SaveSelectModalTextInput);
                 input.observe(on_new_submit);
                 input.observe(on_modal_cancel);
 
-                ui.spawn(Node { height: Val::Px(16.0), ..default() });
+                ui.spawn(Node {
+                    height: Val::Px(16.0),
+                    ..default()
+                });
                 ui.spawn(Node {
                     flex_direction: FlexDirection::Row,
                     column_gap: Val::Px(12.0),
@@ -317,18 +330,21 @@ fn spawn_new_modal(commands: &mut Commands, root: Entity, theme: &cruft_ui::UiTh
                     ui.button(cruft_ui::UiButtonVariant::Primary, |ui| {
                         ui.label("Create");
                     })
-                        .click(on_new_confirm_clicked)
-                        .size(Val::Px(120.0), Val::Px(44.0));
+                    .click(on_new_confirm_clicked)
+                    .size(Val::Px(120.0), Val::Px(44.0));
                     ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
                         ui.label("Cancel");
                     })
-                        .click(on_modal_cancel_clicked)
-                        .size(Val::Px(120.0), Val::Px(44.0));
+                    .click(on_modal_cancel_clicked)
+                    .size(Val::Px(120.0), Val::Px(44.0));
                 });
             })
             .size(Val::Px(420.0), Val::Auto);
         })
-        .insert((SaveSelectModalRoot, DespawnOnExit(FrontEndState::SaveSelect)));
+        .insert((
+            SaveSelectModalRoot,
+            DespawnOnExit(FrontEndState::SaveSelect),
+        ));
     });
 }
 
@@ -354,14 +370,20 @@ fn spawn_rename_modal(
         ui.modal(|ui| {
             ui.card(|ui| {
                 ui.label_semibold("Rename Save");
-                ui.spawn(Node { height: Val::Px(12.0), ..default() });
+                ui.spawn(Node {
+                    height: Val::Px(12.0),
+                    ..default()
+                });
 
                 let mut input = ui.text_input(initial, "New name", Val::Px(320.0));
                 input.insert(SaveSelectModalTextInput);
                 input.observe(on_rename_submit);
                 input.observe(on_modal_cancel);
 
-                ui.spawn(Node { height: Val::Px(16.0), ..default() });
+                ui.spawn(Node {
+                    height: Val::Px(16.0),
+                    ..default()
+                });
                 ui.spawn(Node {
                     flex_direction: FlexDirection::Row,
                     column_gap: Val::Px(12.0),
@@ -372,18 +394,21 @@ fn spawn_rename_modal(
                     ui.button(cruft_ui::UiButtonVariant::Primary, |ui| {
                         ui.label("Save");
                     })
-                        .click(on_rename_confirm_clicked)
-                        .size(Val::Px(120.0), Val::Px(44.0));
+                    .click(on_rename_confirm_clicked)
+                    .size(Val::Px(120.0), Val::Px(44.0));
                     ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
                         ui.label("Cancel");
                     })
-                        .click(on_modal_cancel_clicked)
-                        .size(Val::Px(120.0), Val::Px(44.0));
+                    .click(on_modal_cancel_clicked)
+                    .size(Val::Px(120.0), Val::Px(44.0));
                 });
             })
             .size(Val::Px(420.0), Val::Auto);
         })
-        .insert((SaveSelectModalRoot, DespawnOnExit(FrontEndState::SaveSelect)));
+        .insert((
+            SaveSelectModalRoot,
+            DespawnOnExit(FrontEndState::SaveSelect),
+        ));
     });
 }
 
@@ -402,10 +427,16 @@ fn spawn_delete_modal(
         ui.modal(|ui| {
             ui.card(|ui| {
                 ui.label_semibold("Delete Save?");
-                ui.spawn(Node { height: Val::Px(12.0), ..default() });
+                ui.spawn(Node {
+                    height: Val::Px(12.0),
+                    ..default()
+                });
                 ui.label("This will move the save to .trash.");
 
-                ui.spawn(Node { height: Val::Px(16.0), ..default() });
+                ui.spawn(Node {
+                    height: Val::Px(16.0),
+                    ..default()
+                });
                 ui.spawn(Node {
                     flex_direction: FlexDirection::Row,
                     column_gap: Val::Px(12.0),
@@ -416,18 +447,21 @@ fn spawn_delete_modal(
                     ui.button(cruft_ui::UiButtonVariant::Primary, |ui| {
                         ui.label("Delete");
                     })
-                        .click(on_delete_confirm_clicked)
-                        .size(Val::Px(120.0), Val::Px(44.0));
+                    .click(on_delete_confirm_clicked)
+                    .size(Val::Px(120.0), Val::Px(44.0));
                     ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
                         ui.label("Cancel");
                     })
-                        .click(on_modal_cancel_clicked)
-                        .size(Val::Px(120.0), Val::Px(44.0));
+                    .click(on_modal_cancel_clicked)
+                    .size(Val::Px(120.0), Val::Px(44.0));
                 });
             })
             .size(Val::Px(420.0), Val::Auto);
         })
-        .insert((SaveSelectModalRoot, DespawnOnExit(FrontEndState::SaveSelect)));
+        .insert((
+            SaveSelectModalRoot,
+            DespawnOnExit(FrontEndState::SaveSelect),
+        ));
     });
 }
 
@@ -441,10 +475,14 @@ fn on_save_entry_clicked(
     }
 }
 
-fn on_load_clicked(_ev: On<cruft_ui::UiClick>, state: Res<SaveSelectState>, mut flow: MessageWriter<FlowRequest>) {
-    if let Some(id) = state.selected.as_deref() {
-        flow.write(FlowRequest::StartLoadSave(id.to_string()));
-    }
+fn on_load_clicked(
+    _ev: On<cruft_ui::UiClick>,
+    state: Res<SaveSelectState>,
+    mut flow: MessageWriter<FlowRequest>,
+) {
+    let _ = state;
+    let _ = &mut flow;
+    // TODO(voxel): 本阶段只支持 New；Load 暂不实现（内存存档占位）。
 }
 
 fn on_new_clicked(_ev: On<cruft_ui::UiClick>, mut state: ResMut<SaveSelectState>) {
@@ -452,9 +490,8 @@ fn on_new_clicked(_ev: On<cruft_ui::UiClick>, mut state: ResMut<SaveSelectState>
 }
 
 fn on_rename_clicked(_ev: On<cruft_ui::UiClick>, mut state: ResMut<SaveSelectState>) {
-    if state.selected.is_some() {
-        state.modal = Some(ModalKind::Rename);
-    }
+    let _ = &mut state;
+    // TODO(voxel): 暂不实现 Rename。
 }
 
 fn on_copy_clicked(
@@ -462,15 +499,14 @@ fn on_copy_clicked(
     state: Res<SaveSelectState>,
     mut ops: MessageWriter<SaveOpRequest>,
 ) {
-    if let Some(id) = state.selected.as_deref() {
-        ops.write(SaveOpRequest::Copy { id: SaveId(id.to_string()) });
-    }
+    let _ = state;
+    let _ = &mut ops;
+    // TODO(voxel): 暂不实现 Copy。
 }
 
 fn on_delete_clicked(_ev: On<cruft_ui::UiClick>, mut state: ResMut<SaveSelectState>) {
-    if state.selected.is_some() {
-        state.modal = Some(ModalKind::ConfirmDelete);
-    }
+    let _ = &mut state;
+    // TODO(voxel): 暂不实现 Delete。
 }
 
 fn on_back_clicked(_ev: On<cruft_ui::UiClick>, mut flow: MessageWriter<FlowRequest>) {
@@ -486,10 +522,18 @@ fn on_modal_cancel(ev: On<cruft_ui::UiCancel>, mut state: ResMut<SaveSelectState
     state.modal = None;
 }
 
-fn read_modal_input(inputs: &Query<&cruft_ui::UiTextInput, With<SaveSelectModalTextInput>>) -> Option<String> {
-    let Ok(input) = inputs.single() else { return None; };
+fn read_modal_input(
+    inputs: &Query<&cruft_ui::UiTextInput, With<SaveSelectModalTextInput>>,
+) -> Option<String> {
+    let Ok(input) = inputs.single() else {
+        return None;
+    };
     let v = input.value.trim().to_string();
-    if v.is_empty() { None } else { Some(v) }
+    if v.is_empty() {
+        None
+    } else {
+        Some(v)
+    }
 }
 
 fn on_new_confirm_clicked(
@@ -525,11 +569,10 @@ fn on_rename_confirm_clicked(
     mut state: ResMut<SaveSelectState>,
     inputs: Query<&cruft_ui::UiTextInput, With<SaveSelectModalTextInput>>,
 ) {
-    let Some(id) = state.selected.as_deref() else { return; };
-    if let Some(name) = read_modal_input(&inputs) {
-        ops.write(SaveOpRequest::Rename { id: SaveId(id.to_string()), new_name: name });
-        state.modal = None;
-    }
+    let _ = inputs;
+    let _ = &mut ops;
+    // TODO(voxel): 暂不实现 Rename。
+    state.modal = None;
 }
 
 fn on_rename_submit(
@@ -538,14 +581,11 @@ fn on_rename_submit(
     mut state: ResMut<SaveSelectState>,
     inputs: Query<&cruft_ui::UiTextInput>,
 ) {
-    let Some(id) = state.selected.as_deref() else { return; };
-    if let Ok(input) = inputs.get(ev.entity) {
-        let name = input.value.trim().to_string();
-        if !name.is_empty() {
-            ops.write(SaveOpRequest::Rename { id: SaveId(id.to_string()), new_name: name });
-            state.modal = None;
-        }
-    }
+    let _ = ev;
+    let _ = inputs;
+    let _ = &mut ops;
+    // TODO(voxel): 暂不实现 Rename。
+    state.modal = None;
 }
 
 fn on_delete_confirm_clicked(
@@ -553,9 +593,8 @@ fn on_delete_confirm_clicked(
     mut ops: MessageWriter<SaveOpRequest>,
     mut state: ResMut<SaveSelectState>,
 ) {
-    let Some(id) = state.selected.as_deref() else { return; };
-    ops.write(SaveOpRequest::Delete { id: SaveId(id.to_string()) });
-    state.selected = None;
+    let _ = &mut ops;
+    // TODO(voxel): 暂不实现 Delete。
     state.modal = None;
 }
 

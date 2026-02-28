@@ -10,12 +10,17 @@ pub struct InGameLoadingScreenPlugin;
 impl Plugin for InGameLoadingScreenPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<InGameLoadingError>()
-            .add_systems(OnEnter(InGameState::Loading), (clear_loading_error, spawn_loading_overlay).chain())
+            .add_systems(
+                OnEnter(InGameState::Loading),
+                (clear_loading_error, spawn_loading_overlay).chain(),
+            )
             .add_systems(
                 Update,
                 (
                     capture_loading_error.run_if(in_state(InGameState::Loading)),
-                    update_loading_overlay.run_if(resource_changed::<InGameLoadingError>).run_if(in_state(InGameState::Loading)),
+                    update_loading_overlay
+                        .run_if(resource_changed::<InGameLoadingError>)
+                        .run_if(in_state(InGameState::Loading)),
                 ),
             );
     }
@@ -54,17 +59,32 @@ fn spawn_loading_overlay(mut commands: Commands, theme: Res<cruft_ui::UiTheme>) 
             let mut ui = UiBuilder::new(parent, &theme);
             ui.card(|ui| {
                 ui.label_semibold("Loading…").insert(LoadingLabel);
-                ui.spawn(Node { height: Val::Px(10.0), ..default() });
+                ui.spawn(Node {
+                    height: Val::Px(10.0),
+                    ..default()
+                });
                 ui.label("Preparing world & save data");
-                ui.spawn(Node { height: Val::Px(10.0), ..default() });
+                ui.spawn(Node {
+                    height: Val::Px(10.0),
+                    ..default()
+                });
                 ui.label_mono("").insert(LoadingErrorLabel);
-                ui.spawn((QuitButtonContainer, Node { height: Val::Px(0.0), ..default() }));
+                ui.spawn((
+                    QuitButtonContainer,
+                    Node {
+                        height: Val::Px(0.0),
+                        ..default()
+                    },
+                ));
             })
             .size(Val::Px(420.0), Val::Auto);
         });
 }
 
-fn capture_loading_error(mut reader: MessageReader<SaveLoadResult>, mut err: ResMut<InGameLoadingError>) {
+fn capture_loading_error(
+    mut reader: MessageReader<SaveLoadResult>,
+    mut err: ResMut<InGameLoadingError>,
+) {
     for msg in reader.read() {
         if let SaveLoadResult::Failed { message, .. } = msg {
             err.0 = Some(message.clone());
@@ -96,7 +116,10 @@ fn update_loading_overlay(
 
     commands.entity(container).with_children(|parent| {
         let mut ui = UiBuilder::new(parent, &theme);
-        ui.spawn(Node { height: Val::Px(12.0), ..default() });
+        ui.spawn(Node {
+            height: Val::Px(12.0),
+            ..default()
+        });
         ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
             ui.label("Quit to Main Menu");
         })
@@ -105,6 +128,9 @@ fn update_loading_overlay(
     });
 }
 
-fn on_quit_to_menu(_ev: On<cruft_ui::UiClick>, mut writer: MessageWriter<cruft_game_flow::FlowRequest>) {
+fn on_quit_to_menu(
+    _ev: On<cruft_ui::UiClick>,
+    mut writer: MessageWriter<cruft_game_flow::FlowRequest>,
+) {
     writer.write(cruft_game_flow::FlowRequest::QuitToMainMenu);
 }

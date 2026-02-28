@@ -8,11 +8,9 @@ use serde::{Deserialize, Serialize};
 pub struct SaveRootDir(pub PathBuf);
 
 impl SaveRootDir {
-    /// 平台默认目录；如果无法解析则回落到 `./saves`。
+    /// 默认目录：体素引擎阶段的内存存档占位实现不再解析平台目录。
     pub fn default_path() -> PathBuf {
-        directories::ProjectDirs::from("dev.soeur", "BoxCat", "Cruft")
-            .map(|d| d.data_dir().join("saves"))
-            .unwrap_or_else(|| PathBuf::from("./saves"))
+        PathBuf::from("./saves")
     }
 }
 
