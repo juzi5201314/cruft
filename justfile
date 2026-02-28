@@ -11,6 +11,12 @@ set positional-arguments
 dev *args:
     bun scripts/cargo.cjs dev {{args}}
 
+dev-release *args:
+    bun scripts/cargo.cjs dev-release {{args}}
+
+build *args:
+    bun scripts/cargo.cjs build {{args}}
+
 test *args:
     bun scripts/cargo.cjs test {{args}}
 

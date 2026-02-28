@@ -7,9 +7,9 @@ const { spawnSync } = require('node:child_process');
 function usage() {
   // 保持输出简洁，避免引入额外文档依赖
   // 用法：
-  //   bun scripts/cargo.cjs <dev|test|check|clippy|fmt> [args...]
+  //   bun scripts/cargo.cjs <dev|dev-release|build|test|check|clippy|fmt> [args...]
   process.stderr.write(
-    'Usage: bun scripts/cargo.cjs <dev|test|check|clippy|fmt> [args...]\n'
+    'Usage: bun scripts/cargo.cjs <dev|dev-release|build|test|check|clippy|fmt> [args...]\n'
   );
   process.exit(2);
 }
@@ -37,6 +37,14 @@ function runCargo(cargoArgs) {
   process.exit(result.status ?? 1);
 }
 
+function hasPackageArg(args) {
+  for (let i = 0; i < args.length; i += 1) {
+    const a = args[i];
+    if (a === '-p' || a === '--package') return true;
+  }
+  return false;
+}
+
 const argv = process.argv.slice(2);
 if (argv.length === 0) usage();
 
@@ -60,6 +68,30 @@ switch (subcommand) {
     }
 
     process.exit(result.status ?? 1);
+    break;
+  }
+  case 'dev-release': {
+    // 约定：dev-release 的额外参数全部透传给应用参数（位于 `--` 之后）。
+    const env = { ...process.env, CRUFT_SAVE_DIR: './.dev/run' };
+    const packageArgs = hasPackageArg(argv) ? [] : ['-p', 'app'];
+    const result = spawnSync(
+      'cargo',
+      ['run', '--release', ...packageArgs, ...targetArgs, '--', ...argv],
+      { stdio: 'inherit', env }
+    );
+
+    if (result.error) {
+      process.stderr.write(`Failed to run cargo: ${result.error.message}\n`);
+      process.exit(1);
+    }
+
+    process.exit(result.status ?? 1);
+    break;
+  }
+  case 'build': {
+    // 约定：build 默认构建可执行 crate（app）。如需构建其他 package，显式传 -p/--package。
+    const packageArgs = hasPackageArg(argv) ? [] : ['-p', 'app'];
+    runCargo(['build', '--release', ...packageArgs, ...targetArgs, ...argv]);
     break;
   }
   case 'test': {
