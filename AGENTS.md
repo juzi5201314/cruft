@@ -1,3 +1,24 @@
+#!/usr/bin/env md
+
+# Cruft — Agent Guide
+
+本仓库采用分层 `AGENTS.md`（只在重要/复杂目录放子文件）。根目录只放全局约束；进入子系统目录时，再补充读取该目录下的 `AGENTS.md`。修改代码时请同步修改相应`AGENTS.md`中(如果有)的内容。
+
+## 分层导航
+
+- `crates/app/AGENTS.md`：二进制入口（CLI + 插件装配），以及 legacy plugin 说明
+- `crates/game_flow/AGENTS.md`：全局状态机与 `FlowRequest`（唯一 `NextState<_>` 写入点）
+- `crates/save/AGENTS.md`：存档索引/操作/加载任务（IO 线程池 + 消息契约）
+- `crates/proc_textures/AGENTS.md`：程序化贴图服务（RenderApp compute 一次性生成 + boot readiness）
+- `crates/screens/AGENTS.md`：应用层屏幕 UI（BootLoading/MainMenu/SaveSelect/Pause）
+- `crates/ui/AGENTS.md`：Geist UI（语义组件 + 皮肤 + observer 交互）
+- `docs/voxel/AGENTS.md`：体素引擎规范索引（`docs/voxel/*` 是实现唯一准绳）
+
+## 噪音目录（通常不需要改）
+
+- `.dev/`：开发辅助与 vendored 源码（例如 `.dev/sources/bevy`），多数情况下应忽略
+- `skills/`：agent skills 文档，不参与游戏运行时代码
+
 ## Git 提交
 
 当用户让你进行提交时，*必须*按照`commit.md`来进行规范的提交。
