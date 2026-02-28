@@ -49,4 +49,3 @@ pub enum GameStartKind {
 
 #[derive(Resource, Debug, Default, Clone, Copy)]
 pub struct GameStartGeneration(pub u64);
-

@@ -22,4 +22,3 @@ pub fn spawn_grid_background<S: States>(
         })),
     ));
 }
-

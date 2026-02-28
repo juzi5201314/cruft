@@ -73,7 +73,10 @@ impl Plugin for ProcTexturesPlugin {
             .init_asset::<TextureDataAsset>()
             .init_asset_loader::<TextureDataLoader>()
             .add_systems(Startup, load_texture_data_handle)
-            .add_systems(Update, (setup_procedural_textures_from_data, poll_ready_signal));
+            .add_systems(
+                Update,
+                (setup_procedural_textures_from_data, poll_ready_signal),
+            );
 
         let render_app = app.sub_app_mut(RenderApp);
         render_app.insert_resource(ProcTexturesReadyTx(tx));
@@ -516,7 +519,9 @@ impl render_graph::Node for ProceduralTextureNode {
                         metrics.texture_format,
                     );
                 } else {
-                    log::warn!("程序化纹理生成完成，但缺少统计信息（ProceduralTextureGenerationMetrics）");
+                    log::warn!(
+                        "程序化纹理生成完成，但缺少统计信息（ProceduralTextureGenerationMetrics）"
+                    );
                 }
 
                 if let Some(tx) = world.get_resource::<ProcTexturesReadyTx>() {
@@ -596,10 +601,7 @@ fn estimate_texture_vram_bytes(
     let mip_count = mip_level_count.max(1);
     for _ in 0..mip_count {
         total = total.saturating_add(
-            u64::from(width)
-                * u64::from(height)
-                * u64::from(depth_or_layers)
-                * pixel_size as u64,
+            u64::from(width) * u64::from(height) * u64::from(depth_or_layers) * pixel_size as u64,
         );
 
         width = (width / 2).max(1);

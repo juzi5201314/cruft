@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 
-use crate::state::{AppState, FrontEndState, GameStartGeneration, GameStartKind, InGameState, PendingGameStart};
+use crate::state::{
+    AppState, FrontEndState, GameStartGeneration, GameStartKind, InGameState, PendingGameStart,
+};
 
 /// UI/输入/系统发出的流程请求。
 #[derive(Message, Debug, Clone)]
@@ -166,7 +168,12 @@ pub fn apply_flow_requests(
 mod tests {
     use super::*;
 
-    fn snap(app: AppState, fe: Option<FrontEndState>, ig: Option<InGameState>, gen: u64) -> FlowSnapshot {
+    fn snap(
+        app: AppState,
+        fe: Option<FrontEndState>,
+        ig: Option<InGameState>,
+        gen: u64,
+    ) -> FlowSnapshot {
         FlowSnapshot {
             app,
             frontend: fe,
@@ -184,7 +191,12 @@ mod tests {
 
     #[test]
     fn start_load_bumps_generation_and_enters_ingame() {
-        let s = snap(AppState::FrontEnd, Some(FrontEndState::SaveSelect), None, 41);
+        let s = snap(
+            AppState::FrontEnd,
+            Some(FrontEndState::SaveSelect),
+            None,
+            41,
+        );
         let a = reduce(s, &FlowRequest::StartLoadSave("abc".into()));
         assert!(a.bump_generation);
         assert_eq!(a.set_app, Some(AppState::InGame));

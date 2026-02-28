@@ -38,8 +38,8 @@ fn spawn_pause_menu(mut commands: Commands, theme: Res<cruft_ui::UiTheme>) {
                 ui.button(cruft_ui::UiButtonVariant::Primary, |ui| {
                     ui.label("Resume");
                 })
-                    .click(on_resume_clicked)
-                    .size(Val::Px(200.0), Val::Px(52.0));
+                .click(on_resume_clicked)
+                .size(Val::Px(200.0), Val::Px(52.0));
 
                 ui.spawn(Node {
                     height: Val::Px(12.0),
@@ -49,8 +49,8 @@ fn spawn_pause_menu(mut commands: Commands, theme: Res<cruft_ui::UiTheme>) {
                 ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
                     ui.label("Quit to Main Menu");
                 })
-                    .click(on_quit_clicked)
-                    .size(Val::Px(200.0), Val::Px(52.0));
+                .click(on_quit_clicked)
+                .size(Val::Px(200.0), Val::Px(52.0));
             })
             .size(Val::Px(360.0), Val::Auto);
         });

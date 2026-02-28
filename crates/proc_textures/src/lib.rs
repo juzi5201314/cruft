@@ -3,4 +3,3 @@
 mod plugin;
 
 pub use plugin::{BlockTextureArray, ProcTexturesPlugin, ProcTexturesReady};
-

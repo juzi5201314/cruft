@@ -3,8 +3,8 @@ use bevy::prelude::*;
 use bevy::ui::UiRect;
 
 use crate::components::{
-    UiButton, UiButtonLabel, UiButtonStyleOverride, UiButtonVariant, UiCard, UiProgress,
-    UiModalOverlay, UiProgressFill, UiResponsiveFlex, UiTextInput, UiTextInputValueText,
+    UiButton, UiButtonLabel, UiButtonStyleOverride, UiButtonVariant, UiCard, UiModalOverlay,
+    UiProgress, UiProgressFill, UiResponsiveFlex, UiTextInput, UiTextInputValueText,
 };
 use crate::events::UiClick;
 use crate::theme::UiTheme;

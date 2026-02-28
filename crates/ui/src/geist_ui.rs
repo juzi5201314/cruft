@@ -1,12 +1,12 @@
+use bevy::input::keyboard::{KeyCode, KeyboardInput};
+use bevy::input::ButtonState;
 use bevy::prelude::*;
 use bevy::render::render_resource::AsBindGroup;
 use bevy::shader::ShaderRef;
-use bevy::input::keyboard::{KeyboardInput, KeyCode};
-use bevy::input::ButtonState;
 
 use crate::components::{
-    UiButton, UiButtonLabel, UiButtonStyleOverride, UiButtonVariant, UiCard, UiProgress,
-    UiFocus, UiProgressFill, UiResponsiveFlex, UiTextInput, UiTextInputValueText,
+    UiButton, UiButtonLabel, UiButtonStyleOverride, UiButtonVariant, UiCard, UiFocus, UiProgress,
+    UiProgressFill, UiResponsiveFlex, UiTextInput, UiTextInputValueText,
 };
 use crate::events::{UiCancel, UiClick, UiSubmit};
 use crate::theme::UiTheme;
@@ -323,14 +323,17 @@ fn apply_geist_text_input_skin(
     mut commands: Commands,
     theme: Res<UiTheme>,
     focus: Res<UiFocus>,
-    mut inputs: Query<(
-        Entity,
-        &Interaction,
-        &mut Node,
-        Option<&mut BackgroundColor>,
-        Option<&mut BorderColor>,
-        Option<&mut Outline>,
-    ), With<UiTextInput>>,
+    mut inputs: Query<
+        (
+            Entity,
+            &Interaction,
+            &mut Node,
+            Option<&mut BackgroundColor>,
+            Option<&mut BorderColor>,
+            Option<&mut Outline>,
+        ),
+        With<UiTextInput>,
+    >,
 ) {
     let theme_dirty = theme.is_changed() || focus.is_changed();
 
@@ -367,7 +370,9 @@ fn apply_geist_text_input_skin(
         if let Some(mut border) = border {
             *border = BorderColor::all(border_color);
         } else {
-            commands.entity(entity).insert(BorderColor::all(border_color));
+            commands
+                .entity(entity)
+                .insert(BorderColor::all(border_color));
         }
 
         if let Some(mut outline) = outline {

@@ -34,6 +34,9 @@ impl Plugin for GameFlowPlugin {
                 )
                     .chain(),
             )
-            .configure_sets(Update, (request::FlowSet::Apply, request::FlowSet::Boot).chain());
+            .configure_sets(
+                Update,
+                (request::FlowSet::Apply, request::FlowSet::Boot).chain(),
+            );
     }
 }
