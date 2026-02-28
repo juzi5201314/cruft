@@ -10,8 +10,8 @@
 
 | 任务 | 位置 | 说明 |
 |---|---|---|
-| 应用入口/插件装配 | `crates/app/src/main.rs` | 唯一 `fn main()`；组装 `GameFlow/Save/ProcTextures/Screens/Gameplay` |
-| CLI 参数 | `crates/app/src/main.rs` | `CRUFT_SAVE_DIR` → `SaveRootDir` |
+| 应用入口/插件装配 | `crates/app/src/main.rs` | 唯一 `fn main()`；组装 `GameFlow/Save/Voxel/ProcTextures/Screens/Gameplay` |
+| 环境变量 | `crates/app/src/main.rs` | `CRUFT_SAVE_DIR` → `SaveRootDir` |
 | legacy plugins | `crates/app/src/plugins/` | 旧/样例实现；当前不在 `main.rs` 插件链中 |
 
 ## Conventions
@@ -26,5 +26,5 @@
 ## Commands
 
 ```bash
-cargo run -p app
+just dev
 ```

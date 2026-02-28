@@ -34,12 +34,16 @@ cruft/
 
 - Rust 1.85+ (edition 2021)
 - 支持 Vulkan 的 GPU
+- `just`（命令管理器）
+- `bun`（用于运行 `scripts/cargo.cjs`）
 
 ### 运行
 
 ```bash
-cargo run
+just dev
 ```
+
+`dev` 在 WSL 环境下会使用 `x86_64-pc-windows-gnu` target，非 WSL 环境使用本机默认 target；并设置 `CRUFT_SAVE_DIR=./.dev/run`。
 
 启动后将显示一个测试场景，展示程序化生成的方块贴图。
 
@@ -69,13 +73,13 @@ cargo run
 ### 代码风格
 
 - 遵循 Rust 命名规范 (P.NAM, G.FMT)
-- 使用 `cargo clippy` 检查代码
-- 使用 `cargo fmt` 格式化代码
+- 使用 `just clippy` 检查代码
+- 使用 `just fmt` 格式化代码
 
 ### 测试
 
 ```bash
-cargo nextest run --color=never
+just test
 ```
 
 ## 许可证

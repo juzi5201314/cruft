@@ -71,8 +71,8 @@ crates/
 
 编写 Rust 代码时参考 skill: `coding-guidelines`、`bevy`
 
-- 使用 `cargo clippy` 检查代码
-- 使用 `cargo fmt` 格式化代码
+- 使用 `just clippy` 检查代码
+- 使用 `just fmt` 格式化代码
 - 遵循 Rust 命名规范 (P.NAM, G.FMT)
 
 ## 关键文件
@@ -93,8 +93,18 @@ crates/
 
 ## 测试
 
-使用 `cargo nextest run --color=never` 进行测试，而非 `cargo test`。
+测试只允许使用 `just test`。
+
+## 命令（Just）
+
+- 常用命令统一通过根目录 `justfile` 管理
+- 开发运行使用 `just dev`
+- `just` 的 cargo 命令通过 `bun` 运行 `scripts/cargo.cjs`
 
 ## 平台
 
-- 如果当前环境在wsl(windows subsystem for linux)中，则使用`--target x86_64-pc-windows-gnu`，不要在wsl中使用linux目标。
+- WSL 环境下 `just` 会通过 `scripts/cargo.cjs` 统一使用 `x86_64-pc-windows-gnu`；非 WSL 环境使用本机默认 target。
+
+## 技能
+- 在编写涉及到bevy的代码时，必须查看 $bevy skill
+- 在编写涉及到webgpu(wgsl)代码时，必须查看 $wgsl skill

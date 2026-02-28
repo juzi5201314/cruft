@@ -1,21 +1,15 @@
+use std::path::PathBuf;
+
 use bevy::asset::AssetPlugin;
 use bevy::prelude::*;
-use clap::Parser;
-
-#[derive(Parser, Debug)]
-#[command(name = "cruft", about = "Cruft - a Minecraft-like sandbox game built with Bevy")]
-struct Cli {
-    /// 存档根目录（优先级最高）。
-    #[arg(long, env = "CRUFT_SAVE_DIR", value_name = "DIR")]
-    save_dir: Option<std::path::PathBuf>,
-}
 
 fn main() {
-    let cli = Cli::parse();
     let save_root_dir = cruft_save::SaveRootDir(
-        cli.save_dir
+        std::env::var_os("CRUFT_SAVE_DIR")
+            .map(PathBuf::from)
             .unwrap_or_else(cruft_save::SaveRootDir::default_path),
     );
+
     App::new()
         // CruftUiAssetsPlugin handles EmbeddedAssetPlugin for the UI crate
         .add_plugins(cruft_ui::CruftUiAssetsPlugin)

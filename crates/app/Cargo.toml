@@ -8,7 +8,6 @@ description.workspace = true
 [dependencies]
 bevy.workspace = true
 bevy_embedded_assets.workspace = true
-clap.workspace = true
 cruft-ui = { path = "../ui" }
 cruft-game-flow = { path = "../game_flow" }
 cruft-save = { path = "../save" }
@@ -16,5 +15,3 @@ cruft-proc-textures = { path = "../proc_textures" }
 cruft-screens = { path = "../screens" }
 cruft-gameplay = { path = "../gameplay" }
 log.workspace = true
-serde.workspace = true
-serde_json.workspace = true
