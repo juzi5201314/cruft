@@ -18,7 +18,7 @@ authors = []
 description = "A Minecraft-like game built with Bevy"
 
 [workspace.dependencies]
-bevy = { version = "0.18", features = [] }
+bevy = { version = "0.18", features = ["sysinfo_plugin"] }
 bevy_embedded_assets = "0.15"
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
 serde = { version = "1", features = ["derive"] }

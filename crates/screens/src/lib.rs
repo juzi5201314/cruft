@@ -2,6 +2,7 @@
 
 mod boot_loading;
 mod common;
+mod dev_hud;
 mod in_game_loading;
 mod main_menu;
 mod pause_menu;
@@ -19,6 +20,7 @@ impl Plugin for ScreensPlugin {
             .add_systems(Startup, spawn_ui_camera)
             .add_systems(OnEnter(AppState::InGame), configure_ui_camera_for_in_game)
             .add_systems(OnExit(AppState::InGame), configure_ui_camera_for_frontend)
+            .add_plugins(dev_hud::DevHudPlugin)
             .add_plugins((
                 boot_loading::BootLoadingScreenPlugin,
                 in_game_loading::InGameLoadingScreenPlugin,

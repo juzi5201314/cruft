@@ -10,4 +10,4 @@ bevy.workspace = true
 cruft-game-flow = { path = "../game_flow" }
 cruft-save = { path = "../save" }
 cruft-ui = { path = "../ui" }
-
+cruft-voxel = { path = "../voxel" }
