@@ -8,8 +8,11 @@ mod geist_ui;
 mod theme;
 pub mod ui;
 
-pub use components::{UiButtonStyleOverride, UiButtonVariant, UiProgress, UiResponsiveFlex};
-pub use events::UiClick;
+pub use components::{
+    UiButtonStyleOverride, UiButtonVariant, UiFocus, UiModalOverlay, UiProgress, UiResponsiveFlex,
+    UiTextInput, UiTextInputValueText,
+};
+pub use events::{UiCancel, UiClick, UiSubmit};
 pub use geist_ui::{CruftUiPlugin, GeistGridMaterial};
 pub use theme::{UiFontResources, UiTheme};
 
@@ -25,9 +28,10 @@ impl bevy::prelude::Plugin for CruftUiAssetsPlugin {
 
 pub mod prelude {
     pub use crate::components::{
-        UiButtonStyleOverride, UiButtonVariant, UiProgress, UiResponsiveFlex,
+        UiButtonStyleOverride, UiButtonVariant, UiFocus, UiModalOverlay, UiProgress, UiResponsiveFlex,
+        UiTextInput, UiTextInputValueText,
     };
-    pub use crate::events::UiClick;
+    pub use crate::events::{UiCancel, UiClick, UiSubmit};
     pub use crate::geist_ui::{CruftUiPlugin, GeistGridMaterial};
     pub use crate::theme::{UiFontResources, UiTheme};
     pub use crate::ui;

@@ -1,9 +1,10 @@
 use bevy::ecs::system::IntoObserverSystem;
 use bevy::prelude::*;
+use bevy::ui::UiRect;
 
 use crate::components::{
     UiButton, UiButtonLabel, UiButtonStyleOverride, UiButtonVariant, UiCard, UiProgress,
-    UiProgressFill, UiResponsiveFlex,
+    UiModalOverlay, UiProgressFill, UiResponsiveFlex, UiTextInput, UiTextInputValueText,
 };
 use crate::events::UiClick;
 use crate::theme::UiTheme;
@@ -157,6 +158,74 @@ impl<'a, 'w, 't> UiBuilder<'a, 'w, 't> {
             ));
         });
         root
+    }
+
+    /// Text input (Atomic root).
+    pub fn text_input(
+        &mut self,
+        value: impl Into<String>,
+        placeholder: impl Into<String>,
+        width: Val,
+    ) -> EntityCommands<'_> {
+        let theme = self.theme;
+        let mut entity = self.parent.spawn((
+            Button,
+            UiTextInput {
+                value: value.into(),
+                placeholder: placeholder.into(),
+            },
+            Node {
+                width,
+                height: px(44.0),
+                padding: UiRect::axes(px(16.0), px(10.0)),
+                border: UiRect::all(px(1.0)),
+                border_radius: BorderRadius::all(px(theme.radius)),
+                justify_content: JustifyContent::FlexStart,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            Outline::new(px(2.0), px(2.0), Color::NONE),
+        ));
+
+        entity.with_children(|p| {
+            p.spawn((
+                UiTextInputValueText,
+                Text::new(""),
+                TextFont {
+                    font: theme.fonts.sans.clone(),
+                    font_size: 14.0,
+                    ..default()
+                },
+                TextColor(theme.fg),
+            ));
+        });
+
+        entity
+    }
+
+    /// Fullscreen modal overlay (Composable).
+    pub fn modal<F>(&mut self, build_children: F) -> EntityCommands<'_>
+    where
+        F: for<'c, 'w2> FnOnce(&mut UiBuilder<'c, 'w2, 't>),
+    {
+        let theme = self.theme;
+        let mut entity = self.parent.spawn((
+            UiModalOverlay,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                position_type: PositionType::Absolute,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.35)),
+        ));
+        entity.with_children(|p| {
+            let mut ui = UiBuilder::new(p, theme);
+            build_children(&mut ui);
+        });
+        entity
     }
 }
 

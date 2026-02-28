@@ -1,12 +1,14 @@
 use bevy::prelude::*;
 use bevy::render::render_resource::AsBindGroup;
 use bevy::shader::ShaderRef;
+use bevy::input::keyboard::{KeyboardInput, KeyCode};
+use bevy::input::ButtonState;
 
 use crate::components::{
     UiButton, UiButtonLabel, UiButtonStyleOverride, UiButtonVariant, UiCard, UiProgress,
-    UiProgressFill, UiResponsiveFlex,
+    UiFocus, UiProgressFill, UiResponsiveFlex, UiTextInput, UiTextInputValueText,
 };
-use crate::events::UiClick;
+use crate::events::{UiCancel, UiClick, UiSubmit};
 use crate::theme::UiTheme;
 
 /// Cruft 默认 UI 插件：语义组件 + Geist 皮肤 + Observers 点击事件。
@@ -16,15 +18,20 @@ impl Plugin for CruftUiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(UiMaterialPlugin::<GeistGridMaterial>::default())
             .init_resource::<UiTheme>()
+            .init_resource::<UiFocus>()
             .add_systems(
                 Update,
                 (
                     emit_ui_click,
+                    update_text_input_focus,
+                    handle_text_input_keyboard,
                     apply_geist_button_skin,
                     apply_geist_card_skin,
                     apply_geist_progress_skin,
+                    apply_geist_text_input_skin,
                     update_progress_fill,
                     update_responsive_flex,
+                    sync_text_input_value_text,
                 ),
             );
     }
@@ -254,6 +261,141 @@ fn update_responsive_flex(
         };
         if node.flex_direction != target {
             node.flex_direction = target;
+        }
+    }
+}
+
+fn update_text_input_focus(
+    mut focus: ResMut<UiFocus>,
+    inputs: Query<(Entity, &Interaction), (With<UiTextInput>, Changed<Interaction>)>,
+) {
+    for (entity, interaction) in &inputs {
+        if *interaction == Interaction::Pressed {
+            focus.0 = Some(entity);
+        }
+    }
+}
+
+fn handle_text_input_keyboard(
+    mut commands: Commands,
+    mut reader: MessageReader<KeyboardInput>,
+    mut focus: ResMut<UiFocus>,
+    mut inputs: Query<&mut UiTextInput>,
+) {
+    let Some(focused) = focus.0 else {
+        return;
+    };
+
+    let Ok(mut input) = inputs.get_mut(focused) else {
+        focus.0 = None;
+        return;
+    };
+
+    for ev in reader.read() {
+        if ev.state != ButtonState::Pressed {
+            continue;
+        }
+
+        match ev.key_code {
+            KeyCode::Enter => {
+                commands.trigger(UiSubmit { entity: focused });
+                focus.0 = None;
+                break;
+            }
+            KeyCode::Escape => {
+                commands.trigger(UiCancel { entity: focused });
+                focus.0 = None;
+                break;
+            }
+            KeyCode::Backspace => {
+                input.value.pop();
+            }
+            _ => {
+                if let Some(text) = &ev.text {
+                    input.value.push_str(text.as_str());
+                }
+            }
+        }
+    }
+}
+
+fn apply_geist_text_input_skin(
+    mut commands: Commands,
+    theme: Res<UiTheme>,
+    focus: Res<UiFocus>,
+    mut inputs: Query<(
+        Entity,
+        &Interaction,
+        &mut Node,
+        Option<&mut BackgroundColor>,
+        Option<&mut BorderColor>,
+        Option<&mut Outline>,
+    ), With<UiTextInput>>,
+) {
+    let theme_dirty = theme.is_changed() || focus.is_changed();
+
+    for (entity, interaction, mut node, bg, border, outline) in &mut inputs {
+        let focused = focus.0 == Some(entity);
+        let needs_init = bg.is_none() || border.is_none() || outline.is_none();
+        if !needs_init && !theme_dirty && *interaction == Interaction::None {
+            continue;
+        }
+
+        node.border_radius = BorderRadius::all(Val::Px(theme.radius));
+        node.border = UiRect::all(Val::Px(1.0));
+
+        let mut bg_color = theme.secondary_bg;
+        if *interaction == Interaction::Hovered {
+            bg_color = theme.accent;
+        }
+
+        let border_color = theme.border;
+        let outline_color = if focused {
+            theme.fg.with_alpha(0.15)
+        } else if *interaction == Interaction::Hovered {
+            theme.fg.with_alpha(0.08)
+        } else {
+            Color::NONE
+        };
+
+        if let Some(mut bg) = bg {
+            bg.0 = bg_color;
+        } else {
+            commands.entity(entity).insert(BackgroundColor(bg_color));
+        }
+
+        if let Some(mut border) = border {
+            *border = BorderColor::all(border_color);
+        } else {
+            commands.entity(entity).insert(BorderColor::all(border_color));
+        }
+
+        if let Some(mut outline) = outline {
+            outline.color = outline_color;
+        } else {
+            commands
+                .entity(entity)
+                .insert(Outline::new(Val::Px(2.0), Val::Px(2.0), outline_color));
+        }
+    }
+}
+
+fn sync_text_input_value_text(
+    theme: Res<UiTheme>,
+    inputs: Query<(&UiTextInput, &Children), Or<(Changed<UiTextInput>, Added<UiTextInput>)>>,
+    mut text_query: Query<(&mut Text, &mut TextColor), With<UiTextInputValueText>>,
+) {
+    for (input, children) in &inputs {
+        for child in children.iter() {
+            if let Ok((mut text, mut color)) = text_query.get_mut(child) {
+                if input.value.is_empty() {
+                    text.0 = input.placeholder.clone();
+                    color.0 = theme.muted_fg;
+                } else {
+                    text.0 = input.value.clone();
+                    color.0 = theme.fg;
+                }
+            }
         }
     }
 }
