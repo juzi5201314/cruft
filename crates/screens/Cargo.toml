@@ -1,0 +1,13 @@
+[package]
+name = "cruft-screens"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+
+[dependencies]
+bevy.workspace = true
+cruft-game-flow = { path = "../game_flow" }
+cruft-save = { path = "../save" }
+cruft-ui = { path = "../ui" }
+

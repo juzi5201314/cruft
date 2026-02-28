@@ -3,6 +3,11 @@ resolver = "2"
 members = [
     "crates/app",
     "crates/ui",
+    "crates/game_flow",
+    "crates/save",
+    "crates/proc_textures",
+    "crates/screens",
+    "crates/gameplay",
 ]
 
 [workspace.package]
@@ -17,6 +22,11 @@ bevy_embedded_assets = "0.15"
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+bitflags = "2"
+directories = "6"
+time = { version = "0.3", features = ["serde", "formatting"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+clap = { version = "4", features = ["derive", "env"] }
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

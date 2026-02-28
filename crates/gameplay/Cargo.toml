@@ -1,0 +1,11 @@
+[package]
+name = "cruft-gameplay"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+
+[dependencies]
+bevy.workspace = true
+cruft-game-flow = { path = "../game_flow" }
+

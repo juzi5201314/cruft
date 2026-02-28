@@ -1,0 +1,11 @@
+[package]
+name = "cruft-game-flow"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+
+[dependencies]
+bevy.workspace = true
+bitflags.workspace = true
+

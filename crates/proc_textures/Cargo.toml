@@ -1,0 +1,13 @@
+[package]
+name = "cruft-proc-textures"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+
+[dependencies]
+bevy.workspace = true
+cruft-game-flow = { path = "../game_flow" }
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
