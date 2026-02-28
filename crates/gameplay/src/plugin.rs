@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy::state::state_scoped::DespawnOnExit;
 
 use cruft_game_flow::{AppState, FlowRequest, InGameState};
-use cruft_voxel::VoxelCenter;
+use cruft_voxel::{VoxelCenter, VoxelWorld};
 
 use crate::fps_controller::{
     apply_mouse_look, apply_movement_and_physics, lock_cursor, unlock_cursor, FpsCamera,
@@ -11,7 +11,7 @@ use crate::fps_controller::{
 };
 
 pub(crate) fn build(app: &mut App) {
-    app.add_systems(OnEnter(AppState::InGame), spawn_world_root)
+    app.add_systems(OnEnter(InGameState::Loading), spawn_world_root)
         .add_systems(OnExit(AppState::InGame), unlock_cursor)
         .add_systems(OnEnter(InGameState::Loading), unlock_cursor)
         .add_systems(OnEnter(InGameState::Playing), lock_cursor)
@@ -49,17 +49,42 @@ enum GameplaySet {
 #[derive(Component)]
 struct WorldRoot;
 
-fn spawn_world_root(mut commands: Commands) {
+fn spawn_world_root(
+    mut commands: Commands,
+    voxel_world: Option<Res<VoxelWorld>>,
+    center: Option<ResMut<VoxelCenter>>,
+) {
     let controller = FpsController::default();
     let eye_height = controller.eye_height;
-    let initial_eye = Vec3::new(-2.5, 4.5, 9.0);
+
+    // 出生点：按地形高度把玩家放到地表上方，避免“出生在地下看上表面”
+    // 造成“方块上下颠倒”的错觉。
+    let spawn_x = -2.5f32;
+    let spawn_z = 9.0f32;
+    let wx = spawn_x.floor() as i32;
+    let wz = spawn_z.floor() as i32;
+    let surface_y = voxel_world
+        .as_ref()
+        .map(|w| w.terrain.height_at(wx, wz))
+        .unwrap_or(0);
+    let player_feet_y = (surface_y + 1) as f32;
+
+    let initial_eye = Vec3::new(spawn_x, player_feet_y + eye_height, spawn_z);
     let forward = (Vec3::ZERO - initial_eye).normalize_or_zero();
     let yaw = forward.x.atan2(-forward.z);
     let pitch = forward
         .y
         .asin()
         .clamp(-controller.max_pitch_radians, controller.max_pitch_radians);
-    let player_feet = initial_eye - Vec3::new(0.0, eye_height, 0.0);
+    let player_feet = Vec3::new(spawn_x, player_feet_y, spawn_z);
+
+    if let Some(mut center) = center {
+        center.0 = IVec3::new(
+            player_feet.x.floor() as i32,
+            player_feet.y.floor() as i32,
+            player_feet.z.floor() as i32,
+        );
+    }
 
     commands
         .spawn((
@@ -94,7 +119,8 @@ fn spawn_world_root(mut commands: Commands) {
                     shadows_enabled: true,
                     ..default()
                 },
-                Transform::from_xyz(4.0, 8.0, 4.0),
+                // 光源也跟随出生高度放到地表上方，避免地形遮挡导致画面过暗。
+                Transform::from_xyz(spawn_x + 4.0, player_feet_y + 12.0, spawn_z + 4.0),
             ));
         });
 }

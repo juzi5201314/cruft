@@ -71,7 +71,14 @@ fn vertex(@builtin(vertex_index) vid: u32, @builtin(instance_index) instance_ind
         default: { normal = vec3<f32>(0.0, 0.0, -1.0); u_axis = vec3<f32>(1.0, 0.0, 0.0); v_axis = vec3<f32>(0.0, 1.0, 0.0); }
     }
 
-    let corner = quad_corner(vid);
+    // 约定：primitive front face 为 CCW。
+    // 当前 w/h 轴向按 docs/voxel/meshing.md 固定，因此这里用“翻转角点 u”来修正部分面的绕序，
+    // 确保开启背面剔除后所有面都能从外侧可见。
+    let invert_winding = (face == 0u) || (face == 2u) || (face == 5u);
+    var corner = quad_corner(vid);
+    if (invert_winding) {
+        corner.x = 1.0 - corner.x;
+    }
     let local = vec3<f32>(x, y, z) + u_axis * (corner.x * w) + v_axis * (corner.y * h);
     let world = chunk.origin + local;
     let clip = view.clip_from_world * vec4<f32>(world, 1.0);

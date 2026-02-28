@@ -255,7 +255,7 @@ fn prepare_voxel_gpu_buffers(
             }),
             primitive: PrimitiveState {
                 topology: PrimitiveTopology::TriangleList,
-                cull_mode: None, // MVP：先禁用背面剔除，避免 face winding 问题
+                cull_mode: Some(Face::Back),
                 ..default()
             },
             depth_stencil: Some(DepthStencilState {
