@@ -14,3 +14,4 @@ Cargo.lock
 .dev/
 
 .agents/
+AGENTS.local.md

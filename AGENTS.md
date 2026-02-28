@@ -63,25 +63,9 @@ crates/
 - **不同的内容要分模块**
 - 使用 Bevy Plugin 组织功能
 
-### 体素引擎硬约束（以 docs 为准）
-
-下列约束不讨论替代方案；实现必须与文档一致（只列最关键的“写死点”，细节以文档为准）：
-
-- chunk：`CHUNK_SIZE = 32`（三维无限高度流式）
-- Storage v2（硬切换，不做向后兼容/双写）：
-  - 热路径：`Chunk → Brick(8×8×8)`（每 chunk 64 brick）
-  - brick 三态：`Single | Paletted(u16 indices) | Direct(u32 values)`
-  - 线性索引顺序写死：`x` 最快、其次 `z`、最后 `y`（见 `docs/voxel/storage.md`）
-- Meshing：
-  - 输入必须是 `PaddedChunk(34×34×34)` 快照（禁止任务内再读 world storage）
-  - 输出为 `PackedQuad(u64)` 流，按 `Opaque/Cutout/Transparent` 分桶（见 `docs/voxel/meshing.md`）
-- Rendering：
-  - CPU quad buffer 驱动几何；GPU 端 vertex pulling
-  - 绘制固定走 MDI；剔除固定走 Frustum + HZB（见 `docs/voxel/rendering.md`）
-- Far Volumetric：
-  - occupancy clipmap 固定 3 级、固定分辨率与步数预算（见 `docs/voxel/far_volumetric.md`）
-- Lighting：
-  - 不做 voxel GI，性能优先（见 `docs/voxel/lighting.md`）
+### 规范
+- 具体项目实现方案请阅读`@docs/`
+- 读取`AGENTS.local.md` (如果有)。
 
 ### 代码风格
 
