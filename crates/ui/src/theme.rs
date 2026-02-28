@@ -1,3 +1,4 @@
+use bevy::ecs::world::{FromWorld, World};
 use bevy::prelude::*;
 
 /// UI 字体资源句柄。
@@ -23,6 +24,22 @@ pub struct UiTheme {
     pub secondary_fg: Color,
     pub radius: f32,
     pub fonts: UiFontResources,
+}
+
+impl FromWorld for UiTheme {
+    fn from_world(world: &mut World) -> Self {
+        let asset_server = world
+            .get_resource::<AssetServer>()
+            .expect("CruftUiPlugin requires AssetServer (add DefaultPlugins before CruftUiPlugin)");
+
+        let fonts = UiFontResources {
+            sans: asset_server.load("fonts/Geist-Regular.ttf"),
+            sans_semibold: asset_server.load("fonts/Geist-SemiBold.ttf"),
+            mono: asset_server.load("fonts/GeistMono-Regular.ttf"),
+            icons: asset_server.load("icons/lucide.ttf"),
+        };
+        Self::geist_light(fonts)
+    }
 }
 
 impl UiTheme {

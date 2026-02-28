@@ -136,8 +136,8 @@ fn spawn_main_menu(
                         ..default()
                     })
                     .with_children(|p| {
-                         let mut ui = UiBuilder::new(p, &theme);
-                         ui.label_semibold("Cruft");
+                        let mut ui = UiBuilder::new(p, &theme);
+                        ui.label_semibold("Cruft");
                     });
 
                     ui.spawn(Node {

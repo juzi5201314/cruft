@@ -96,7 +96,12 @@ impl<'a, 'w, 't> UiBuilder<'a, 'w, 't> {
         self.label_styled(text, self.theme.fonts.mono.clone(), 13.0)
     }
 
-    fn label_styled(&mut self, text: impl Into<String>, font: Handle<Font>, size: f32) -> EntityCommands<'_> {
+    fn label_styled(
+        &mut self,
+        text: impl Into<String>,
+        font: Handle<Font>,
+        size: f32,
+    ) -> EntityCommands<'_> {
         let fg = self.theme.fg;
         self.parent.spawn((
             UiButtonLabel,
@@ -159,7 +164,8 @@ impl<'a, 'w, 't> UiBuilder<'a, 'w, 't> {
 pub trait UiEntityCommandsExt {
     fn size(&mut self, width: Val, height: Val) -> &mut Self;
     fn styles(&mut self, styles: UiButtonStyleOverride) -> &mut Self;
-    fn click<B: Bundle, M>(&mut self, handler: impl IntoObserverSystem<UiClick, B, M>) -> &mut Self;
+    fn click<B: Bundle, M>(&mut self, handler: impl IntoObserverSystem<UiClick, B, M>)
+        -> &mut Self;
     fn responsive_flex(
         &mut self,
         breakpoint_px: f32,
