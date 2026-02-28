@@ -23,7 +23,8 @@ cruft/
 │   ├── shaders/                # WGSL shader
 │   └── texture_data/           # 程序化贴图配置 (JSON)
 ├── docs/
-│   └── textures.md             # 程序化贴图系统文档
+│   ├── textures.md             # 程序化贴图系统文档
+│   └── voxel/                  # 体素引擎方案文档
 └── Cargo.toml                  # Workspace 配置
 ```
 
@@ -49,13 +50,19 @@ cargo run
 1. **Workspace Crate**：独立子系统应提取为 `crates/` 下的独立 crate
 2. **插件化设计**：主要功能通过 Bevy 插件实现
 3. **数据驱动**：内容（贴图、方块定义）在数据文件中定义，而非代码
-4. **GPU 优先**：重量级计算（贴图生成、地形网格化）通过 compute shader 在 GPU 上运行
+4. **GPU 优先**：程序化贴图通过 GPU compute shader 生成；体素网格化主线走 CPU 异步（详见 `docs/voxel/overview.md`）
 
 ## 程序化贴图
 
 贴图系统在启动时使用 WGSL compute shader 生成所有方块贴图。贴图通过 JSON 配置文件定义：
 
 完整规范见 [docs/textures.md](docs/textures.md)。
+
+## 体素引擎文档
+
+体素（voxel）引擎方案与取舍记录见：
+
+- [docs/voxel/overview.md](docs/voxel/overview.md)
 
 ## 开发
 
