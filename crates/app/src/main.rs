@@ -24,6 +24,7 @@ fn main() {
         .insert_resource(save_root_dir)
         .add_plugins(cruft_game_flow::GameFlowPlugin)
         .add_plugins(cruft_save::SavePlugin)
+        .add_plugins(cruft_voxel::VoxelPlugin)
         .add_plugins(cruft_proc_textures::ProcTexturesPlugin)
         .add_plugins(cruft_screens::ScreensPlugin)
         .add_plugins(cruft_gameplay::GameplayPlugin)

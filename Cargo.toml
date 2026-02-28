@@ -5,6 +5,7 @@ members = [
     "crates/ui",
     "crates/game_flow",
     "crates/save",
+    "crates/voxel",
     "crates/proc_textures",
     "crates/screens",
     "crates/gameplay",

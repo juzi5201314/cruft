@@ -38,21 +38,21 @@
 
 其中 `PackedQuad` 是一个 `u64`（写死布局）：
 
-- 低 32bit（从低到高位）：`x(6) | y(6) | z(6) | w(6) | h(6) | face(2)`
+- 低 32bit（从低到高位）：`x(6) | y(6) | z(6) | w(5) | h(5) | face(3) | reserved(1)`
 - 高 32bit（从低到高位）：`material_key(8) | flags(8) | reserved(16)`
 
 位布局（写死）：
 
 ```
-low32  = x | (y<<6) | (z<<12) | (w<<18) | (h<<24) | (face<<30)
-high32 = material_key | (flags<<8)
+low32  = x | (y<<6) | (z<<12) | (w_minus1<<18) | (h_minus1<<23) | (face<<28) | (reserved1<<31)
+high32 = material_key | (flags<<8) | (reserved<<16)
 packed = low32 | (high32<<32)
 ```
 
 字段含义（写死）：
 
 - `x,y,z`：quad 起点（chunk 局部坐标，范围 `0..32`，用于表达正向面的 `+1` 边界）
-- `w,h`：quad 尺寸（范围 `1..32`）
+- `w,h`：quad 尺寸（范围 `1..32`），编码为 `w_minus1/h_minus1 ∈ 0..31`
 - `face`：6 个方向编码（`0..5`）
 - `material_key`：纹理数组 layer（`0..255`）
 - `flags`：渲染层/alpha 模式等（与 `rendering.md` 对齐）
