@@ -14,8 +14,9 @@ struct Quad {
 
 @group(1) @binding(0) var<uniform> chunk: ChunkUniform;
 @group(1) @binding(1) var<storage, read> quads: array<u32>;
-@group(1) @binding(2) var array_texture: texture_2d_array<f32>;
-@group(1) @binding(3) var array_sampler: sampler;
+@group(1) @binding(2) var<storage, read> face_mappings: array<u32>;
+@group(1) @binding(3) var array_texture: texture_2d_array<f32>;
+@group(1) @binding(4) var array_sampler: sampler;
 
 struct VsOut {
     @builtin(position) clip_position: vec4<f32>,
@@ -27,6 +28,34 @@ fn decode_u32(pair_index: u32) -> Quad {
     let low = quads[pair_index * 2u];
     let high = quads[pair_index * 2u + 1u];
     return Quad(low, high);
+}
+
+fn mapped_layer(material_key: u32, face: u32) -> i32 {
+    // 每个 material_key 固定占 8 个 u32：
+    // [legacy, top, bottom, north, south, east, west, valid]
+    let stride = 8u;
+    let base = material_key * stride;
+    let required_len = base + stride;
+    if (required_len > arrayLength(&face_mappings)) {
+        return i32(material_key);
+    }
+
+    let valid = face_mappings[base + 7u];
+    if (valid == 0u) {
+        return i32(material_key);
+    }
+
+    switch (face) {
+        // +X / -X
+        case 0u: { return i32(face_mappings[base + 5u]); } // east
+        case 1u: { return i32(face_mappings[base + 6u]); } // west
+        // +Y / -Y
+        case 2u: { return i32(face_mappings[base + 1u]); } // top
+        case 3u: { return i32(face_mappings[base + 2u]); } // bottom
+        // +Z / -Z
+        case 4u: { return i32(face_mappings[base + 4u]); } // south
+        default: { return i32(face_mappings[base + 3u]); } // north
+    }
 }
 
 fn quad_corner(vid: u32) -> vec2<f32> {
@@ -86,7 +115,7 @@ fn vertex(@builtin(vertex_index) vid: u32, @builtin(instance_index) instance_ind
     var out: VsOut;
     out.clip_position = clip;
     out.uv = corner;
-    out.layer = i32(material_key);
+    out.layer = mapped_layer(material_key, face);
     return out;
 }
 
