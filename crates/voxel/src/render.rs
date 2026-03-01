@@ -33,6 +33,7 @@ use crate::coords::ChunkKey;
 use crate::world::{ChunkDrawRange, VoxelQuadStore};
 
 const SHADER_ASSET_PATH: &str = "shaders/voxel_quads.wgsl";
+const VOXEL_SAMPLING_ENV: &str = "CRUFT_VOXEL_SAMPLING";
 
 #[derive(Resource, Clone)]
 struct ExtractedBlockTextureArray(pub Handle<Image>);
@@ -138,6 +139,62 @@ impl Plugin for VoxelRenderPlugin {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VoxelSamplingMode {
+    Pixel,
+    Smooth,
+}
+
+impl VoxelSamplingMode {
+    fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "pixel" => Some(Self::Pixel),
+            "smooth" => Some(Self::Smooth),
+            _ => None,
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Pixel => "pixel",
+            Self::Smooth => "smooth",
+        }
+    }
+
+    fn sampler_descriptor(self) -> SamplerDescriptor<'static> {
+        match self {
+            Self::Pixel => SamplerDescriptor {
+                label: Some("voxel_sampler_pixel"),
+                mag_filter: FilterMode::Nearest,
+                min_filter: FilterMode::Nearest,
+                mipmap_filter: FilterMode::Linear,
+                ..default()
+            },
+            Self::Smooth => SamplerDescriptor {
+                label: Some("voxel_sampler_smooth"),
+                mag_filter: FilterMode::Linear,
+                min_filter: FilterMode::Linear,
+                mipmap_filter: FilterMode::Linear,
+                anisotropy_clamp: 16,
+                ..default()
+            },
+        }
+    }
+}
+
+fn resolve_voxel_sampling_mode() -> VoxelSamplingMode {
+    let Ok(raw) = std::env::var(VOXEL_SAMPLING_ENV) else {
+        return VoxelSamplingMode::Pixel;
+    };
+    let Some(mode) = VoxelSamplingMode::parse(&raw) else {
+        log::warn!(
+            "{VOXEL_SAMPLING_ENV}={raw:?} 无效；可选值为 \"pixel\" / \"smooth\"，已回退到 \"pixel\""
+        );
+        return VoxelSamplingMode::Pixel;
+    };
+    mode
+}
+
 fn init_voxel_render_pipeline(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -165,12 +222,12 @@ fn init_voxel_render_pipeline(
         ),
     );
 
-    let sampler = render_device.create_sampler(&SamplerDescriptor {
-        mag_filter: FilterMode::Nearest,
-        min_filter: FilterMode::Nearest,
-        mipmap_filter: FilterMode::Nearest,
-        ..default()
-    });
+    let sampling_mode = resolve_voxel_sampling_mode();
+    let sampler = render_device.create_sampler(&sampling_mode.sampler_descriptor());
+    log::info!(
+        "Voxel 纹理采样模式：{}（env: {VOXEL_SAMPLING_ENV}）",
+        sampling_mode.as_str()
+    );
 
     let shader = asset_server.load(SHADER_ASSET_PATH);
 

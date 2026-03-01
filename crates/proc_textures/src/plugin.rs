@@ -13,7 +13,7 @@ use std::time::Instant;
 use bevy::{
     asset::RenderAssetUsages,
     asset::{io::Reader, LoadContext},
-    image::{TextureFormatPixelInfo, Volume},
+    image::TextureFormatPixelInfo,
     prelude::*,
     reflect::TypePath,
     render::{
@@ -42,6 +42,7 @@ const CANONICAL_TEXTURE_SIZE: u32 = 64;
 const MATERIAL_SHADER_ASSET_PATH: &str = "shaders/procedural_array_material.wgsl";
 const MAX_LAYERS: usize = 256;
 const TEXTURE_DATA_PATH: &str = "texture_data/blocks.texture.json";
+const MIN_NOISE_SCALE: f32 = 1.0;
 
 /// 程序化纹理 array 的句柄（未来供 voxel/material 使用）。
 #[derive(Resource, Clone)]
@@ -126,7 +127,7 @@ impl Plugin for ProcTexturesPlugin {
             .add_systems(RenderStartup, init_procedural_texture_pipeline)
             .add_systems(
                 Render,
-                prepare_procedural_texture_bind_group.in_set(RenderSystems::PrepareBindGroups),
+                prepare_procedural_texture_params_buffer.in_set(RenderSystems::PrepareBindGroups),
             );
 
         let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
@@ -210,6 +211,7 @@ fn setup_procedural_textures_from_data(
             return;
         }
     };
+    let mip_level_count = calculate_mip_level_count(CANONICAL_TEXTURE_SIZE);
 
     let mut image = Image::new_target_texture(
         CANONICAL_TEXTURE_SIZE,
@@ -219,27 +221,21 @@ fn setup_procedural_textures_from_data(
     );
     image.asset_usage = RenderAssetUsages::RENDER_WORLD;
     image.texture_descriptor.size.depth_or_array_layers = layer_count;
+    image.texture_descriptor.mip_level_count = mip_level_count;
     image.texture_descriptor.usage =
         TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
     image.texture_view_descriptor = Some(TextureViewDescriptor {
         dimension: Some(TextureViewDimension::D2Array),
         ..default()
     });
-    if let Some(data) = image.data.as_mut() {
-        let pixel_size = image
-            .texture_descriptor
-            .format
-            .pixel_size()
-            .expect("ProceduralTexture output image format must have a known pixel size");
-        let byte_len = pixel_size * image.texture_descriptor.size.volume() as usize;
-        data.resize(byte_len, 0);
-    }
+    // 纹理内容完全由 RenderGraph compute pass 写入，不保留 CPU 像素副本。
+    image.data = None;
 
     commands.insert_resource(ProceduralTextureGenerationMetrics {
         started_at: Instant::now(),
         texture_size: image.texture_descriptor.size,
         texture_format: image.texture_descriptor.format,
-        mip_level_count: image.texture_descriptor.mip_level_count.max(1),
+        mip_level_count,
         texture_dimension: image.texture_descriptor.dimension,
     });
 
@@ -350,7 +346,10 @@ impl TextureSpec {
     fn to_layer_params(&self) -> ProceduralTextureLayerParams {
         let requested_size = self.size.max(1);
         let ratio = CANONICAL_TEXTURE_SIZE as f32 / requested_size as f32;
-        let noise_scale = (self.noise_scale * ratio).max(1e-6);
+        // 归一到 64×64 的“语义缩放”策略：
+        // - noise_scale：按分辨率比例缩放，让噪声周期（以像素计）保持接近不变
+        // - warp_strength：按反比例缩放，让 warp 的像素位移保持接近不变
+        let noise_scale = (self.noise_scale * ratio).max(MIN_NOISE_SCALE);
         let warp_strength = (self.warp_strength / ratio).max(0.0);
 
         match self.style {
@@ -565,7 +564,7 @@ impl Material for ProceduralArrayMaterial {
 }
 
 #[derive(Resource)]
-struct ProceduralTextureBindGroup(BindGroup);
+struct ProceduralTextureParamsBuffer(UniformBuffer<ProceduralTextureArrayParams>);
 
 #[derive(Resource)]
 struct ProceduralTextureDispatchThisFrame(bool);
@@ -611,38 +610,25 @@ fn init_procedural_texture_pipeline(
     commands.insert_resource(ProceduralTextureDispatchThisFrame(false));
 }
 
-fn prepare_procedural_texture_bind_group(
+fn prepare_procedural_texture_params_buffer(
     mut commands: Commands,
-    pipeline: Res<ProceduralTexturePipeline>,
-    pipeline_cache: Res<PipelineCache>,
-    gpu_images: Res<RenderAssets<GpuImage>>,
-    procedural_images: Option<Res<ProceduralTextureImages>>,
     params: Option<Res<ProceduralTextureArrayParams>>,
     render_device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
-    existing: Option<Res<ProceduralTextureBindGroup>>,
+    existing: Option<Res<ProceduralTextureParamsBuffer>>,
 ) {
     if existing.is_some() {
         return;
     }
 
-    let (Some(procedural_images), Some(params)) = (procedural_images, params) else {
+    let Some(params) = params else {
         return;
     };
 
-    let Some(gpu_image) = gpu_images.get(&procedural_images.array) else {
-        return;
-    };
-
-    let mut uniform_buffer = UniformBuffer::from(params.into_inner());
+    let mut uniform_buffer = UniformBuffer::from(params.into_inner().clone());
+    uniform_buffer.set_label(Some("procedural_texture_params"));
     uniform_buffer.write_buffer(&render_device, &queue);
-
-    let bind_group = render_device.create_bind_group(
-        None,
-        &pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout),
-        &BindGroupEntries::sequential((&gpu_image.texture_view, &uniform_buffer)),
-    );
-    commands.insert_resource(ProceduralTextureBindGroup(bind_group));
+    commands.insert_resource(ProceduralTextureParamsBuffer(uniform_buffer));
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
@@ -670,7 +656,7 @@ impl render_graph::Node for ProceduralTextureNode {
     fn update(&mut self, world: &mut World) {
         let mut dispatch = false;
 
-        if !world.contains_resource::<ProceduralTextureBindGroup>() {
+        if !is_procedural_texture_dispatch_ready(world) {
             world.insert_resource(ProceduralTextureDispatchThisFrame(false));
             return;
         }
@@ -753,17 +739,15 @@ impl render_graph::Node for ProceduralTextureNode {
 
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipeline = world.resource::<ProceduralTexturePipeline>();
-        let bind_group = &world.resource::<ProceduralTextureBindGroup>().0;
+        let params_buffer = world.resource::<ProceduralTextureParamsBuffer>();
+        let render_device = world.resource::<RenderDevice>();
+        let bind_group_layout = pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout);
 
         let gpu_images = world.resource::<RenderAssets<GpuImage>>();
         let images = world.resource::<ProceduralTextureImages>();
         let gpu_image = gpu_images
             .get(&images.array)
             .expect("ProceduralTexture output image wasn't prepared to GPU yet");
-
-        let x_workgroups = (gpu_image.size.width + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
-        let y_workgroups = (gpu_image.size.height + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
-        let layer_workgroups = gpu_image.size.depth_or_array_layers;
 
         let compute_pipeline = pipeline_cache
             .get_compute_pipeline(pipeline.pipeline)
@@ -773,11 +757,67 @@ impl render_graph::Node for ProceduralTextureNode {
             .command_encoder()
             .begin_compute_pass(&ComputePassDescriptor::default());
         pass.set_pipeline(compute_pipeline);
-        pass.set_bind_group(0, bind_group, &[]);
-        pass.dispatch_workgroups(x_workgroups, y_workgroups, layer_workgroups);
+        let mip_level_count = gpu_image.mip_level_count.max(1);
+        let layer_workgroups = gpu_image.size.depth_or_array_layers.max(1);
+
+        for mip_level in 0..mip_level_count {
+            let mip_width = mip_extent(gpu_image.size.width, mip_level);
+            let mip_height = mip_extent(gpu_image.size.height, mip_level);
+            let mip_view = gpu_image.texture.create_view(&TextureViewDescriptor {
+                format: Some(gpu_image.texture_format),
+                dimension: Some(TextureViewDimension::D2Array),
+                base_mip_level: mip_level,
+                mip_level_count: Some(1),
+                base_array_layer: 0,
+                array_layer_count: Some(layer_workgroups),
+                ..default()
+            });
+            let bind_group = render_device.create_bind_group(
+                None,
+                &bind_group_layout,
+                &BindGroupEntries::sequential((&mip_view, &params_buffer.0)),
+            );
+
+            pass.set_bind_group(0, &bind_group, &[]);
+            pass.dispatch_workgroups(
+                workgroup_count(mip_width),
+                workgroup_count(mip_height),
+                layer_workgroups,
+            );
+        }
 
         Ok(())
     }
+}
+
+fn is_procedural_texture_dispatch_ready(world: &World) -> bool {
+    let Some(params_buffer) = world.get_resource::<ProceduralTextureParamsBuffer>() else {
+        return false;
+    };
+    if params_buffer.0.buffer().is_none() {
+        return false;
+    }
+
+    let Some(images) = world.get_resource::<ProceduralTextureImages>() else {
+        return false;
+    };
+    let Some(gpu_images) = world.get_resource::<RenderAssets<GpuImage>>() else {
+        return false;
+    };
+    gpu_images.get(&images.array).is_some()
+}
+
+fn calculate_mip_level_count(size: u32) -> u32 {
+    let clamped = size.max(1);
+    u32::BITS - clamped.leading_zeros()
+}
+
+fn mip_extent(size: u32, mip_level: u32) -> u32 {
+    (size >> mip_level).max(1)
+}
+
+fn workgroup_count(size: u32) -> u32 {
+    size.div_ceil(WORKGROUP_SIZE)
 }
 
 fn estimate_texture_vram_bytes(
