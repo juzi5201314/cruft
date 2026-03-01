@@ -66,7 +66,7 @@ fn spawn_world_root(
     let wz = spawn_z.floor() as i32;
     let surface_y = voxel_world
         .as_ref()
-        .map(|w| w.terrain.height_at(wx, wz))
+        .map(|w| w.sample_surface_height(wx, wz))
         .unwrap_or(0);
     let player_feet_y = (surface_y + 1) as f32;
 

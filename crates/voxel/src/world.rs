@@ -6,25 +6,22 @@ use bevy::render::extract_component::ExtractComponent;
 use bevy::render::extract_resource::ExtractResource;
 use bevy::tasks::{futures_lite::future, poll_once, AsyncComputeTaskPool, Task};
 
-use cruft_game_flow::{AppState, FlowRequest, GameStartKind, InGameState, PendingGameStart};
+use cruft_game_flow::{AppState, FlowRequest, InGameState};
+use cruft_save::CurrentSave;
+use cruft_worldgen_spec::WorldGenConfig;
 
 use crate::blocks::BlockDefs;
-use crate::coords::ChunkKey;
+use crate::coords::{chunk_index, ChunkKey};
 use crate::meshing::{mesh, MeshingInput, MeshingOutput};
 use crate::storage::Storage;
-use crate::terrain::Terrain;
+use crate::worldgen::{build_generator, GeneratedChunk, WorldGenerator};
 use crate::CHUNK_SIZE;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Resource)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Resource, Default)]
 pub enum VoxelPhase {
+    #[default]
     Loading,
     Playing,
-}
-
-impl Default for VoxelPhase {
-    fn default() -> Self {
-        Self::Loading
-    }
 }
 
 #[derive(Debug, Clone, Copy, Resource)]
@@ -76,15 +73,29 @@ pub struct VoxelQuadUploadQueue {
 pub struct VoxelWorld {
     pub defs: BlockDefs,
     pub storage: Storage,
-    pub terrain: Terrain,
+    pub worldgen_config: WorldGenConfig,
+    pub generator: Box<dyn WorldGenerator>,
+}
+
+impl VoxelWorld {
+    pub fn set_worldgen_config(&mut self, config: WorldGenConfig) {
+        self.worldgen_config = config.clone();
+        self.generator = build_generator(&config);
+    }
+
+    pub fn sample_surface_height(&self, wx: i32, wz: i32) -> i32 {
+        self.generator.sample_surface_height(wx, wz)
+    }
 }
 
 impl Default for VoxelWorld {
     fn default() -> Self {
+        let worldgen_config = WorldGenConfig::default();
         Self {
             defs: BlockDefs::default(),
             storage: Storage::default(),
-            terrain: Terrain::default(),
+            generator: build_generator(&worldgen_config),
+            worldgen_config,
         }
     }
 }
@@ -118,6 +129,12 @@ struct VoxelLoadingTracker {
 #[derive(Resource, Default)]
 struct VoxelMeshingTasks {
     tasks: HashMap<ChunkKey, Task<MeshingOutput>>,
+}
+
+#[derive(Resource, Default)]
+struct VoxelLoadGate {
+    worldgen_ready: bool,
+    applied_world_id: Option<String>,
 }
 
 #[derive(Resource, Default)]
@@ -203,6 +220,7 @@ impl Plugin for VoxelPlugin {
             .init_resource::<VoxelQuadUploadQueue>()
             .init_resource::<VoxelLoadingTracker>()
             .init_resource::<VoxelMeshingTasks>()
+            .init_resource::<VoxelLoadGate>()
             .init_resource::<VoxelQuadArena>()
             .add_plugins(crate::render::VoxelRenderPlugin)
             .add_systems(OnEnter(InGameState::Loading), start_voxel_loading)
@@ -211,6 +229,7 @@ impl Plugin for VoxelPlugin {
             .add_systems(
                 Update,
                 (
+                    configure_worldgen_from_save_system,
                     update_loading_tracker_system,
                     stream_chunks_system,
                     spawn_meshing_tasks_system,
@@ -227,11 +246,10 @@ fn start_voxel_loading(
     mut phase: ResMut<VoxelPhase>,
     config: Res<VoxelConfig>,
     mut tracker: ResMut<VoxelLoadingTracker>,
-    mut world: ResMut<VoxelWorld>,
+    world: ResMut<VoxelWorld>,
+    mut load_gate: ResMut<VoxelLoadGate>,
     mut arena: ResMut<VoxelQuadArena>,
     mut uploads: ResMut<VoxelQuadUploadQueue>,
-    pending: Option<Res<PendingGameStart>>,
-    mut commands: Commands,
 ) {
     *phase = VoxelPhase::Loading;
 
@@ -249,28 +267,50 @@ fn start_voxel_loading(
     tracker.required.clear();
     tracker.completed.clear();
     tracker.finished = false;
-
-    // 用 PendingGameStart 的 generation + display_name 生成确定性 seed。
-    if let Some(pending) = pending {
-        if let GameStartKind::NewSave { display_name } = &pending.kind {
-            world.terrain.seed = fnv1a64(display_name.as_bytes())
-                ^ (pending.generation as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
-        }
-        commands.remove_resource::<PendingGameStart>();
-    }
+    load_gate.worldgen_ready = false;
+    load_gate.applied_world_id = None;
     let _ = &config;
-    // required/completed 由 Update 阶段按实时 VoxelCenter 维护（避免“中心点更新后 required 永远达不成”）。
     tracker.required.clear();
 }
 
-fn enter_voxel_playing(mut phase: ResMut<VoxelPhase>) {
+fn configure_worldgen_from_save_system(
+    phase: Res<VoxelPhase>,
+    current_save: Option<Res<CurrentSave>>,
+    mut load_gate: ResMut<VoxelLoadGate>,
+    mut world: ResMut<VoxelWorld>,
+) {
+    if !matches!(*phase, VoxelPhase::Loading) {
+        load_gate.worldgen_ready = true;
+        return;
+    }
+
+    let Some(current_save) = current_save else {
+        load_gate.worldgen_ready = false;
+        return;
+    };
+    let Some(loaded) = current_save.0.as_ref() else {
+        load_gate.worldgen_ready = false;
+        return;
+    };
+
+    if load_gate.applied_world_id.as_deref() != Some(loaded.world_header.world_uuid.as_str()) {
+        world.set_worldgen_config(loaded.world_header.generator.clone());
+        load_gate.applied_world_id = Some(loaded.world_header.world_uuid.clone());
+    }
+
+    load_gate.worldgen_ready = true;
+}
+
+fn enter_voxel_playing(mut phase: ResMut<VoxelPhase>, mut load_gate: ResMut<VoxelLoadGate>) {
     *phase = VoxelPhase::Playing;
+    load_gate.worldgen_ready = true;
 }
 
 fn cleanup_voxel_world(
     mut phase: ResMut<VoxelPhase>,
     mut tracker: ResMut<VoxelLoadingTracker>,
     mut tasks: ResMut<VoxelMeshingTasks>,
+    mut load_gate: ResMut<VoxelLoadGate>,
     mut arena: ResMut<VoxelQuadArena>,
     mut uploads: ResMut<VoxelQuadUploadQueue>,
     world: Res<VoxelWorld>,
@@ -280,6 +320,8 @@ fn cleanup_voxel_world(
     tracker.completed.clear();
     tracker.finished = false;
     tasks.tasks.clear();
+    load_gate.worldgen_ready = false;
+    load_gate.applied_world_id = None;
     arena.data.clear();
     arena.free.clear();
     arena.pending_updates.clear();
@@ -292,15 +334,24 @@ fn cleanup_voxel_world(
     world.storage.clear();
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "chunk 流送系统需要同时访问配置、阶段、世界与现有实体查询"
+)]
 fn stream_chunks_system(
     mut commands: Commands,
     config: Res<VoxelConfig>,
     center: Res<VoxelCenter>,
     phase: Res<VoxelPhase>,
+    load_gate: Res<VoxelLoadGate>,
     world: Res<VoxelWorld>,
     mut arena: ResMut<VoxelQuadArena>,
     existing: Query<(Entity, &ChunkKey, &ChunkDrawRange)>,
 ) {
+    if matches!(*phase, VoxelPhase::Loading) && !load_gate.worldgen_ready {
+        return;
+    }
+
     let (center_key, _) = ChunkKey::from_world_voxel(center.0);
     let radius = match *phase {
         VoxelPhase::Loading => config.loading_ready_radius,
@@ -320,7 +371,7 @@ fn stream_chunks_system(
             continue;
         }
 
-        ensure_generated_chunk(&world.storage, &world.terrain, key);
+        ensure_generated_chunk(&world, key);
         // 新 chunk 出现会改变边界可见面：强制通知 6 邻居 remesh。
         for n in key.neighbors_6() {
             world.storage.mark_dirty(n);
@@ -361,8 +412,13 @@ fn spawn_meshing_tasks_system(
     world: Res<VoxelWorld>,
     mut tasks: ResMut<VoxelMeshingTasks>,
     phase: Res<VoxelPhase>,
+    load_gate: Res<VoxelLoadGate>,
     chunks: Query<(&ChunkKey, &ChunkGeneration)>,
 ) {
+    if matches!(*phase, VoxelPhase::Loading) && !load_gate.worldgen_ready {
+        return;
+    }
+
     if tasks.tasks.len() >= config.max_inflight_meshing {
         return;
     }
@@ -422,6 +478,10 @@ fn spawn_meshing_tasks_system(
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "meshing 结果提交路径涉及 commands、task、tracker 与 flow 消息"
+)]
 fn poll_meshing_tasks_system(
     mut commands: Commands,
     world: Res<VoxelWorld>,
@@ -454,6 +514,10 @@ fn poll_meshing_tasks_system(
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "提交函数需要原子更新 arena、chunk 组件与 loading 进度"
+)]
 fn commit_meshing_result(
     commands: &mut Commands,
     world: &VoxelWorld,
@@ -553,16 +617,28 @@ fn sync_upload_queue_system(
     uploads.updates = Arc::from(updates.into_boxed_slice());
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "加载追踪需综合配置、中心点、任务与 chunk 代际状态"
+)]
 fn update_loading_tracker_system(
     config: Res<VoxelConfig>,
     center: Res<VoxelCenter>,
     phase: Res<VoxelPhase>,
+    load_gate: Res<VoxelLoadGate>,
     world: Res<VoxelWorld>,
     tasks: Res<VoxelMeshingTasks>,
     mut tracker: ResMut<VoxelLoadingTracker>,
     chunks: Query<(&ChunkKey, &ChunkGeneration)>,
 ) {
     if !matches!(*phase, VoxelPhase::Loading) {
+        return;
+    }
+
+    if !load_gate.worldgen_ready {
+        tracker.required.clear();
+        tracker.completed.clear();
+        tracker.finished = false;
         return;
     }
 
@@ -623,32 +699,22 @@ impl ChunkBounds {
     }
 }
 
-fn ensure_generated_chunk(storage: &Storage, terrain: &Terrain, key: ChunkKey) {
-    let chunk = storage.get_or_create_chunk(key);
+fn ensure_generated_chunk(world: &VoxelWorld, key: ChunkKey) {
+    let chunk = world.storage.get_or_create_chunk(key);
     if !chunk.is_dirty() && chunk.generation() > 1 {
         return;
     }
 
     let base = key.min_world_voxel();
-    // 性能：Playing 半径 8 会覆盖大量 chunk；这里按 brick/heightmap 快速判定全 AIR / 全 STONE，
-    // 只对地表附近少量 brick 逐体素填充，避免 32^3 全填。
-    let mut heights = [0i32; 32 * 32];
-    for lz in 0..32i32 {
-        for lx in 0..32i32 {
-            heights[(lx as usize) + (lz as usize) * 32] =
-                terrain.height_at(base.x + lx, base.z + lz);
+    match world.generator.generate_chunk(key) {
+        GeneratedChunk::SurfaceColumns(columns) => {
+            chunk.fill_surface_columns(base.y, columns.as_ref());
+        }
+        GeneratedChunk::Dense(values) => {
+            chunk.fill_direct(|lx, ly, lz| values[chunk_index(lx, ly, lz)]);
         }
     }
-    chunk.fill_terrain_heightmap(base.y, &heights);
+
     // 生成只做一次；保持 generation，用于后续 meshing。
     chunk.clear_dirty();
-}
-
-fn fnv1a64(bytes: &[u8]) -> u64 {
-    let mut h = 0xcbf29ce484222325u64;
-    for &b in bytes {
-        h ^= b as u64;
-        h = h.wrapping_mul(0x100000001b3);
-    }
-    h
 }

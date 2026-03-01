@@ -11,8 +11,8 @@
 | 任务 | 位置 | 说明 |
 |---|---|---|
 | 插件/消息类型/系统集 | `crates/save/src/api.rs` | `SavePlugin`、`SaveOp*`、`SaveLoad*`、`SaveSet` |
-| IO 实现/磁盘格式 | `crates/save/src/io.rs` | 单文件数据库存档（`saves.redb`，redb + postcard + zstd） |
-| 类型 | `crates/save/src/types.rs` | `SaveRootDir`、`SaveId`、`SaveMeta`、`LoadedSave` |
+| IO 实现/磁盘格式 | `crates/save/src/io.rs` | 实际 scan/create/copy/rename/delete/load；world header v2 |
+| 类型 | `crates/save/src/types.rs` | `SaveRootDir`、`SaveId`、`SaveMeta`、`LoadedSave(+WorldHeaderV2)` |
 
 ## Conventions
 
@@ -22,7 +22,7 @@
 ## Flow integration
 
 - BootLoading：`OnEnter(AppState::BootLoading)` 触发 `start_scan_index`，完成后写入 `BootReady::SAVE_INDEX`。
-- InGame Loading：`OnEnter(InGameState::Loading)` 读取 `PendingGameStart` 发起请求（并移除该资源），`SaveLoadResult` 在 Loading 内统一驱动 `FlowRequest::FinishGameLoading`/`QuitToMainMenu`。
+- InGame Loading：由 `PendingGameStart` 驱动加载/新建，并在失败时回退到菜单（写 `FlowRequest`）。
 
 ## Testing
 
@@ -30,4 +30,4 @@
 
 ## Gotchas
 
-- `docs/voxel/persistence.md` 规定世界格式 v2；当前 `crates/save/src/io.rs` 为过渡期单文件格式，后续迁移仍应以 voxel spec 为准。
+- 世界格式以 v2 为准（`header.cruft` + `meta.json`）；不要再引入并行旧格式。

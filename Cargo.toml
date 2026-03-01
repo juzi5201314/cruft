@@ -6,6 +6,7 @@ members = [
     "crates/game_flow",
     "crates/save",
     "crates/voxel",
+    "crates/worldgen_spec",
     "crates/proc_textures",
     "crates/screens",
     "crates/gameplay",
@@ -28,6 +29,7 @@ directories = "6"
 time = { version = "0.3", features = ["serde", "formatting"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 clap = { version = "4", features = ["derive", "env"] }
+noise = "0.9"
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

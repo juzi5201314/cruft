@@ -56,22 +56,28 @@
 1) **World Storage**（`storage.md` / `storage_blocks.md` / `storage_layers.md` / `persistence.md`）  
 负责：chunk 流式、blocks 热路径存储、分层数据组织、持久化 IO、变更通知（dirty chunk 标记）。
 
-2) **Meshing**（`meshing.md`）  
+2) **WorldGen Surface**（`worldgen_surface.md`）  
+负责：可插拔 chunk 生成器、地表噪声采样、`SurfaceColumns` 输出契约。
+
+3) **Meshing**（`meshing.md`）  
 负责：从 chunk 数据生成网格；跨 chunk 邻居采样；任务并行与版本一致性。
 
-3) **Rendering**（`rendering.md`）  
+4) **Rendering**（`rendering.md`）  
 负责：quad buffer、vertex pulling、MDI、HZB 遮挡剔除、材质与纹理数组绑定。
 
-4) **Far Volumetric Horizon**（`far_volumetric.md`）  
+5) **Far Volumetric Horizon**（`far_volumetric.md`）  
 负责：远处雾化地平线；低分辨率 clipmap 的维护；极低成本 raymarch 合成。
 
-5) **Lighting**（`lighting.md`）  
+6) **Lighting**（`lighting.md`）  
 负责：近景光栅化光照与远景雾化合成的固定规则。
 
 ### 主数据流（运行时）
 
 ```
 [玩家/系统编辑 voxel]
+        |
+        v
+[WorldGen 生成 chunk blocks]
         |
         v
 [World Storage 写入 + 标记 dirty chunk]

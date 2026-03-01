@@ -10,4 +10,7 @@ publish = false
 bevy.workspace = true
 cruft-game-flow = { path = "../game_flow" }
 cruft-proc-textures = { path = "../proc_textures" }
+cruft-save = { path = "../save" }
+cruft-worldgen-spec = { path = "../worldgen_spec" }
 log.workspace = true
+noise.workspace = true

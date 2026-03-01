@@ -158,5 +158,71 @@
         }
       }
     }
+  },
+  {
+    "name": "minecraft_sand",
+    "size": 64,
+    "seed": 8181,
+    "style": "minecraft",
+    "faces": {
+      "all": {
+        "has_layer": false,
+        "base": {
+          "palette": [
+            [185, 170, 112],
+            [200, 184, 124],
+            [218, 201, 136],
+            [232, 215, 150]
+          ],
+          "noise_scale": 3.2,
+          "octaves": 3,
+          "warp_strength": 0.05
+        }
+      }
+    }
+  },
+  {
+    "name": "minecraft_gravel",
+    "size": 64,
+    "seed": 9292,
+    "style": "minecraft",
+    "faces": {
+      "all": {
+        "has_layer": false,
+        "base": {
+          "palette": [
+            [112, 110, 106],
+            [126, 124, 120],
+            [142, 140, 136],
+            [158, 156, 151]
+          ],
+          "noise_scale": 2.4,
+          "octaves": 4,
+          "warp_strength": 0.08
+        }
+      }
+    }
+  },
+  {
+    "name": "minecraft_snow",
+    "size": 64,
+    "seed": 10303,
+    "style": "minecraft",
+    "faces": {
+      "all": {
+        "has_layer": false,
+        "base": {
+          "palette": [
+            [224, 226, 232],
+            [236, 238, 244],
+            [246, 248, 252],
+            [255, 255, 255]
+          ],
+          "noise_scale": 1.6,
+          "octaves": 3,
+          "warp_strength": 0.06
+        }
+      }
+    }
   }
 ]

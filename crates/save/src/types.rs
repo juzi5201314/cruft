@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use bevy::prelude::*;
+use cruft_worldgen_spec::WorldHeaderV2;
 use serde::{Deserialize, Serialize};
 
 /// 存档根目录。
@@ -29,12 +30,13 @@ pub struct SaveMeta {
     pub display_name: String,
     pub created_at: i64,
     pub last_played_at: i64,
-    pub format_version: u32,
+    pub world_format_version: u32,
 }
 
 #[derive(Debug, Clone)]
 pub struct LoadedSave {
     pub meta: SaveMeta,
+    pub world_header: WorldHeaderV2,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

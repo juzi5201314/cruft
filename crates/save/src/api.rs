@@ -1,19 +1,16 @@
-use std::io;
+use std::cmp::Reverse;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use bevy::prelude::*;
 use bevy::tasks::{futures_lite::future, poll_once, IoTaskPool, Task};
 
 use cruft_game_flow::{
-    AppState, BootReadiness, BootReady, FlowRequest, GameStartKind, InGameState,
-    PendingGameStart,
+    AppState, BootReadiness, BootReady, FlowRequest, GameStartKind, InGameState, PendingGameStart,
 };
 
-use crate::io::{
-    create_new_save, copy_save, load_save_minimal, read_save_world_info, rename_save, scan_index,
-    soft_delete_save, touch_last_played,
-};
-use crate::types::{LoadedSave, SaveId, SaveMeta, SaveRootDir, SaveWorldInfo};
+use crate::io;
+use crate::types::{LoadedSave, SaveId, SaveMeta, SaveRootDir};
 
 /// 存档索引。
 #[derive(Resource, Debug, Default, Clone)]
@@ -44,18 +41,6 @@ pub enum SaveOpResult {
     Failed { message: String },
 }
 
-
-#[derive(Message, Debug, Clone)]
-pub struct SaveInfoRequest {
-    pub id: SaveId,
-}
-
-#[derive(Message, Debug, Clone)]
-pub enum SaveInfoResult {
-    Loaded { info: SaveWorldInfo },
-    Failed { message: String },
-}
-
 #[derive(Message, Debug, Clone)]
 pub struct SaveLoadRequest {
     pub id: SaveId,
@@ -68,35 +53,24 @@ pub enum SaveLoadResult {
     Failed { message: String, generation: u64 },
 }
 
-/// 当前会话“正在游戏内”的存档（用于 UI/调试）。
+/// 当前会话“正在游戏内”的存档。
 #[derive(Resource, Debug, Default, Clone)]
 pub struct CurrentSave(pub Option<LoadedSave>);
 
-#[derive(Resource, Debug, Clone, Copy)]
-struct ActiveLoadGeneration(pub u64);
+#[derive(Resource, Default)]
+struct SaveScanTask(Option<Task<Result<Arc<[SaveMeta]>, String>>>);
 
-#[derive(Resource)]
-struct ScanTask(Task<io::Result<Vec<SaveMeta>>>);
-
-#[derive(Resource)]
-struct OpTask(Task<io::Result<SaveOpTaskResult>>);
-
-#[derive(Resource)]
-struct LoadTask(Task<LoadTaskResult>);
-
-#[derive(Resource)]
-struct InfoTask(Task<io::Result<SaveWorldInfo>>);
-
-type LoadTaskResult = Result<(SaveMeta, u64), (String, u64)>;
+#[derive(Resource, Default)]
+struct SaveOpTask(Option<Task<SaveOpResult>>);
 
 #[derive(Debug)]
-enum SaveOpTaskResult {
-    Created(SaveMeta),
-    Copied(SaveMeta),
-    Renamed(SaveMeta),
-    Deleted(SaveId),
-    Rescanned,
+struct LoadOutcome {
+    generation: u64,
+    result: Result<LoadedSave, String>,
 }
+
+#[derive(Resource, Default)]
+struct SaveLoadTask(Option<Task<LoadOutcome>>);
 
 pub struct SavePlugin;
 
@@ -106,332 +80,259 @@ impl Plugin for SavePlugin {
             .add_message::<SaveOpResult>()
             .add_message::<SaveLoadRequest>()
             .add_message::<SaveLoadResult>()
-            .add_message::<SaveInfoRequest>()
-            .add_message::<SaveInfoResult>()
-            .init_resource::<SaveRootDir>()
             .init_resource::<SaveIndex>()
             .init_resource::<SaveIndexReady>()
             .init_resource::<CurrentSave>()
+            .init_resource::<SaveScanTask>()
+            .init_resource::<SaveOpTask>()
+            .init_resource::<SaveLoadTask>()
             .add_systems(OnEnter(AppState::BootLoading), start_scan_index)
-            .add_systems(OnEnter(InGameState::Loading), start_in_game_loading)
+            .add_systems(OnEnter(InGameState::Loading), start_ingame_load)
             .add_systems(OnExit(AppState::InGame), clear_current_save)
             .add_systems(
                 Update,
                 (
-                    poll_scan_index,
-                    start_save_ops.run_if(in_state(AppState::FrontEnd)),
-                    poll_save_ops.run_if(in_state(AppState::FrontEnd)),
-                    start_save_info.run_if(in_state(AppState::FrontEnd)),
-                    poll_save_info.run_if(in_state(AppState::FrontEnd)),
-                    start_save_loads.run_if(in_state(AppState::InGame)),
-                    poll_save_loads.run_if(in_state(AppState::InGame)),
-                    handle_in_game_load_results.run_if(in_state(InGameState::Loading)),
+                    poll_scan_index.run_if(in_state(AppState::BootLoading)),
+                    (start_save_ops, poll_save_ops)
+                        .chain()
+                        .run_if(in_state(AppState::FrontEnd)),
+                    poll_ingame_load.run_if(in_state(AppState::InGame)),
                 ),
             );
     }
 }
 
 fn start_scan_index(
-    mut commands: Commands,
     root: Res<SaveRootDir>,
-    existing_task: Option<Res<ScanTask>>,
+    mut ready: ResMut<SaveIndexReady>,
+    mut scan_task: ResMut<SaveScanTask>,
 ) {
-    if existing_task.is_some() {
-        return;
-    }
+    ready.0 = false;
 
-    let root_dir = root.0.clone();
-    let task = IoTaskPool::get().spawn(async move { scan_index(&root_dir) });
-    commands.insert_resource(ScanTask(task));
+    let root = root.0.clone();
+    let pool = IoTaskPool::get();
+    scan_task.0 = Some(pool.spawn(async move { scan_index_task(root) }));
 }
 
 fn poll_scan_index(
-    mut commands: Commands,
     mut index: ResMut<SaveIndex>,
     mut ready: ResMut<SaveIndexReady>,
     mut boot: ResMut<BootReadiness>,
-    mut results: MessageWriter<SaveOpResult>,
-    mut task: Option<ResMut<ScanTask>>,
+    mut scan_task: ResMut<SaveScanTask>,
 ) {
-    let Some(task) = task.as_mut() else {
+    let Some(mut task) = scan_task.0.take() else {
         return;
     };
 
-    if let Some(result) = future::block_on(poll_once(&mut task.0)) {
-        commands.remove_resource::<ScanTask>();
+    if let Some(result) = future::block_on(poll_once(&mut task)) {
         match result {
-            Ok(items) => {
-                let items: Arc<[SaveMeta]> = Arc::from(items);
-                index.items = items.clone();
-                ready.0 = true;
-                boot.0.insert(BootReady::SAVE_INDEX);
-                results.write(SaveOpResult::IndexUpdated { items });
-            }
+            Ok(items) => index.items = items,
             Err(err) => {
-                ready.0 = true;
-                boot.0.insert(BootReady::SAVE_INDEX);
-                results.write(SaveOpResult::Failed {
-                    message: format!("scan save index failed: {err}"),
-                });
+                log::warn!("save index scan failed: {err}");
+                index.items = Arc::from([]);
             }
         }
+        ready.0 = true;
+        boot.0.insert(BootReady::SAVE_INDEX);
+    } else {
+        scan_task.0 = Some(task);
     }
 }
 
 fn start_save_ops(
-    mut commands: Commands,
     root: Res<SaveRootDir>,
     mut requests: MessageReader<SaveOpRequest>,
-    existing_task: Option<Res<OpTask>>,
+    mut op_task: ResMut<SaveOpTask>,
 ) {
-    let Some(request) = requests.read().last().cloned() else {
-        return;
-    };
-    if existing_task.is_some() {
+    if op_task.0.is_some() {
         return;
     }
 
-    let root_dir = root.0.clone();
-    let task = IoTaskPool::get().spawn(async move {
-        let result = match request {
-            SaveOpRequest::CreateNew { display_name } => {
-                SaveOpTaskResult::Created(create_new_save(&root_dir, display_name)?)
-            }
-            SaveOpRequest::Copy { id } => SaveOpTaskResult::Copied(copy_save(&root_dir, &id)?),
-            SaveOpRequest::Rename { id, new_name } => {
-                SaveOpTaskResult::Renamed(rename_save(&root_dir, &id, new_name)?)
-            }
-            SaveOpRequest::Delete { id } => {
-                soft_delete_save(&root_dir, &id)?;
-                SaveOpTaskResult::Deleted(id)
-            }
-            SaveOpRequest::Rescan => SaveOpTaskResult::Rescanned,
-        };
-        Ok(result)
-    });
-    commands.insert_resource(OpTask(task));
+    let mut last: Option<SaveOpRequest> = None;
+    for req in requests.read() {
+        last = Some(req.clone());
+    }
+
+    let Some(request) = last else {
+        return;
+    };
+
+    let root = root.0.clone();
+    let pool = IoTaskPool::get();
+    op_task.0 = Some(pool.spawn(async move { run_op(root, request) }));
 }
 
 fn poll_save_ops(
-    mut commands: Commands,
-    root: Res<SaveRootDir>,
-    mut index: ResMut<SaveIndex>,
+    mut op_task: ResMut<SaveOpTask>,
     mut results: MessageWriter<SaveOpResult>,
-    mut task: Option<ResMut<OpTask>>,
+    mut index: ResMut<SaveIndex>,
 ) {
-    let Some(task) = task.as_mut() else {
+    let Some(mut task) = op_task.0.take() else {
         return;
     };
 
-    if let Some(result) = future::block_on(poll_once(&mut task.0)) {
-        commands.remove_resource::<OpTask>();
-        match result {
-            Ok(op_result) => {
-                match op_result {
-                    SaveOpTaskResult::Created(meta) => {
-                        results.write(SaveOpResult::Created { meta });
-                    }
-                    SaveOpTaskResult::Copied(meta) => {
-                        results.write(SaveOpResult::Copied { meta });
-                    }
-                    SaveOpTaskResult::Renamed(meta) => {
-                        results.write(SaveOpResult::Renamed { meta });
-                    }
-                    SaveOpTaskResult::Deleted(id) => {
-                        results.write(SaveOpResult::Deleted { id });
-                    }
-                    SaveOpTaskResult::Rescanned => {}
-                }
-
-                match scan_index(&root.0) {
-                    Ok(items) => {
-                        let items: Arc<[SaveMeta]> = Arc::from(items);
-                        index.items = items.clone();
-                        results.write(SaveOpResult::IndexUpdated { items });
-                    }
-                    Err(err) => {
-                        results.write(SaveOpResult::Failed {
-                            message: format!("rescan save index failed: {err}"),
-                        });
-                    }
-                }
-            }
-            Err(err) => {
-                results.write(SaveOpResult::Failed {
-                    message: format!("save op failed: {err}"),
-                });
-            }
-        }
+    if let Some(result) = future::block_on(poll_once(&mut task)) {
+        apply_op_to_index(&mut index, &result);
+        results.write(result);
+    } else {
+        op_task.0 = Some(task);
     }
 }
 
-
-fn start_save_info(
-    mut commands: Commands,
-    root: Res<SaveRootDir>,
-    mut requests: MessageReader<SaveInfoRequest>,
-    existing_task: Option<Res<InfoTask>>,
-) {
-    let Some(request) = requests.read().last().cloned() else {
-        return;
-    };
-    if existing_task.is_some() {
-        return;
-    }
-
-    let root_dir = root.0.clone();
-    let task = IoTaskPool::get().spawn(async move { read_save_world_info(&root_dir, &request.id) });
-    commands.insert_resource(InfoTask(task));
-}
-
-fn poll_save_info(
-    mut commands: Commands,
-    mut results: MessageWriter<SaveInfoResult>,
-    mut task: Option<ResMut<InfoTask>>,
-) {
-    let Some(task) = task.as_mut() else {
-        return;
-    };
-
-    if let Some(result) = future::block_on(poll_once(&mut task.0)) {
-        commands.remove_resource::<InfoTask>();
-        match result {
-            Ok(info) => {
-                results.write(SaveInfoResult::Loaded { info });
-            }
-            Err(err) => {
-                results.write(SaveInfoResult::Failed {
-                    message: format!("load save info failed: {err}"),
-                });
-            }
-        }
-    }
-}
-
-fn start_in_game_loading(
-    mut commands: Commands,
+fn start_ingame_load(
     root: Res<SaveRootDir>,
     pending: Option<Res<PendingGameStart>>,
-    mut load_requests: MessageWriter<SaveLoadRequest>,
+    mut load_task: ResMut<SaveLoadTask>,
+    mut current: ResMut<CurrentSave>,
+    mut commands: Commands,
+    mut results: MessageWriter<SaveLoadResult>,
+    mut flow: MessageWriter<FlowRequest>,
 ) {
+    current.0 = None;
+
+    if load_task.0.is_some() {
+        return;
+    }
+
     let Some(pending) = pending else {
+        results.write(SaveLoadResult::Failed {
+            message: "missing PendingGameStart".to_string(),
+            generation: 0,
+        });
+        flow.write(FlowRequest::QuitToMainMenu);
         return;
     };
 
     let generation = pending.generation;
-    match &pending.kind {
-        GameStartKind::LoadSave(id) => {
-            load_requests.write(SaveLoadRequest {
-                id: SaveId(id.clone()),
-                generation,
-            });
-        }
-        GameStartKind::NewSave { display_name } => {
-            let root_dir = root.0.clone();
-            let display_name = display_name.clone();
-            let task = IoTaskPool::get().spawn(async move {
-                match create_new_save(&root_dir, display_name) {
-                    Ok(meta) => Ok((meta, generation)),
-                    Err(err) => Err((format!("create new save failed: {err}"), generation)),
-                }
-            });
-            commands.insert_resource(LoadTask(task));
-        }
-    }
+    let kind = pending.kind.clone();
+    let root = root.0.clone();
 
-    commands.insert_resource(ActiveLoadGeneration(generation));
+    let pool = IoTaskPool::get();
+    load_task.0 = Some(pool.spawn(async move {
+        let result = match kind {
+            GameStartKind::LoadSave(id) => io::load_save(&root, &SaveId(id)),
+            GameStartKind::NewSave { display_name } => {
+                io::create_new_save(&root, display_name, generation)
+            }
+        }
+        .map_err(|err| err.to_string());
+
+        LoadOutcome { generation, result }
+    }));
+
     commands.remove_resource::<PendingGameStart>();
 }
 
-fn start_save_loads(
-    mut commands: Commands,
-    root: Res<SaveRootDir>,
-    mut requests: MessageReader<SaveLoadRequest>,
-    existing_task: Option<Res<LoadTask>>,
-) {
-    let Some(request) = requests.read().last().cloned() else {
-        return;
-    };
-    if existing_task.is_some() {
-        return;
-    }
-
-    let root_dir = root.0.clone();
-    let task = IoTaskPool::get().spawn(async move {
-        match load_save_minimal(&root_dir, &request.id)
-            .and_then(|meta| touch_last_played(&root_dir, &SaveId(meta.id.clone())))
-        {
-            Ok(meta) => Ok((meta, request.generation)),
-            Err(err) => Err((format!("load save failed: {err}"), request.generation)),
-        }
-    });
-    commands.insert_resource(LoadTask(task));
-}
-
-fn poll_save_loads(
-    mut commands: Commands,
-    mut current_save: ResMut<CurrentSave>,
+fn poll_ingame_load(
+    mut load_task: ResMut<SaveLoadTask>,
+    mut current: ResMut<CurrentSave>,
     mut results: MessageWriter<SaveLoadResult>,
-    mut task: Option<ResMut<LoadTask>>,
-) {
-    let Some(task) = task.as_mut() else {
-        return;
-    };
-
-    if let Some(result) = future::block_on(poll_once(&mut task.0)) {
-        commands.remove_resource::<LoadTask>();
-        match result {
-            Ok((meta, generation)) => {
-                let loaded = LoadedSave { meta };
-                current_save.0 = Some(loaded.clone());
-                results.write(SaveLoadResult::Loaded {
-                    save: loaded,
-                    generation,
-                });
-            }
-            Err((message, generation)) => {
-                results.write(SaveLoadResult::Failed {
-                    message,
-                    generation,
-                });
-            }
-        }
-    }
-}
-
-fn handle_in_game_load_results(
-    mut commands: Commands,
-    active_generation: Option<Res<ActiveLoadGeneration>>,
-    mut current_save: ResMut<CurrentSave>,
-    mut results: MessageReader<SaveLoadResult>,
     mut flow: MessageWriter<FlowRequest>,
 ) {
-    let Some(active_generation) = active_generation else {
+    let Some(mut task) = load_task.0.take() else {
         return;
     };
-    let expected_generation = active_generation.0;
 
-    for msg in results.read() {
-        match msg {
-            SaveLoadResult::Loaded { save, generation } if *generation == expected_generation => {
-                current_save.0 = Some(save.clone());
-                flow.write(FlowRequest::FinishGameLoading);
-                commands.remove_resource::<ActiveLoadGeneration>();
+    if let Some(outcome) = future::block_on(poll_once(&mut task)) {
+        match outcome.result {
+            Ok(save) => {
+                current.0 = Some(save.clone());
+                results.write(SaveLoadResult::Loaded {
+                    save,
+                    generation: outcome.generation,
+                });
             }
-            SaveLoadResult::Failed {
-                generation,
-                message: _,
-            } if *generation == expected_generation => {
+            Err(message) => {
+                current.0 = None;
+                results.write(SaveLoadResult::Failed {
+                    message,
+                    generation: outcome.generation,
+                });
                 flow.write(FlowRequest::QuitToMainMenu);
-                commands.remove_resource::<ActiveLoadGeneration>();
             }
-            _ => {}
         }
+    } else {
+        load_task.0 = Some(task);
     }
 }
 
-fn clear_current_save(mut commands: Commands, mut current: ResMut<CurrentSave>) {
+fn clear_current_save(
+    mut current: ResMut<CurrentSave>,
+    mut load_task: ResMut<SaveLoadTask>,
+    mut op_task: ResMut<SaveOpTask>,
+) {
+    // “退出存档后清空”：任何从 InGame 离开都清空会话存档。
     current.0 = None;
-    commands.remove_resource::<ActiveLoadGeneration>();
-    commands.remove_resource::<LoadTask>();
+    load_task.0 = None;
+    op_task.0 = None;
+}
+
+fn scan_index_task(root: PathBuf) -> Result<Arc<[SaveMeta]>, String> {
+    let items = io::scan_index(&root).map_err(|err| err.to_string())?;
+    Ok(Arc::from(items.into_boxed_slice()))
+}
+
+fn run_op(root: PathBuf, request: SaveOpRequest) -> SaveOpResult {
+    match request {
+        SaveOpRequest::CreateNew { display_name } => {
+            match io::create_new_save(&root, display_name, 0).map(|save| save.meta) {
+                Ok(meta) => SaveOpResult::Created { meta },
+                Err(err) => SaveOpResult::Failed {
+                    message: err.to_string(),
+                },
+            }
+        }
+        SaveOpRequest::Copy { id } => match io::copy_save(&root, &id) {
+            Ok(meta) => SaveOpResult::Copied { meta },
+            Err(err) => SaveOpResult::Failed {
+                message: err.to_string(),
+            },
+        },
+        SaveOpRequest::Rename { id, new_name } => match io::rename_save(&root, &id, new_name) {
+            Ok(meta) => SaveOpResult::Renamed { meta },
+            Err(err) => SaveOpResult::Failed {
+                message: err.to_string(),
+            },
+        },
+        SaveOpRequest::Delete { id } => match io::soft_delete_save(&root, &id) {
+            Ok(()) => SaveOpResult::Deleted { id },
+            Err(err) => SaveOpResult::Failed {
+                message: err.to_string(),
+            },
+        },
+        SaveOpRequest::Rescan => match io::scan_index(&root) {
+            Ok(items) => SaveOpResult::IndexUpdated {
+                items: Arc::from(items.into_boxed_slice()),
+            },
+            Err(err) => SaveOpResult::Failed {
+                message: err.to_string(),
+            },
+        },
+    }
+}
+
+fn apply_op_to_index(index: &mut SaveIndex, result: &SaveOpResult) {
+    match result {
+        SaveOpResult::IndexUpdated { items } => {
+            index.items = items.clone();
+        }
+        SaveOpResult::Created { meta }
+        | SaveOpResult::Copied { meta }
+        | SaveOpResult::Renamed { meta } => {
+            let mut items = index.items.to_vec();
+            if let Some(i) = items.iter().position(|m| m.id == meta.id) {
+                items[i] = meta.clone();
+            } else {
+                items.push(meta.clone());
+            }
+            items.sort_by_key(|m| Reverse(m.last_played_at));
+            index.items = Arc::from(items.into_boxed_slice());
+        }
+        SaveOpResult::Deleted { id } => {
+            let mut items = index.items.to_vec();
+            items.retain(|m| m.id != id.0);
+            index.items = Arc::from(items.into_boxed_slice());
+        }
+        SaveOpResult::Failed { .. } => {}
+    }
 }

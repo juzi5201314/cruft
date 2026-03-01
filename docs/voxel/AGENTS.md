@@ -11,6 +11,7 @@
 | 主题 | 规范 | 说明 |
 |---|---|---|
 | 总览/分层/数据流 | `docs/voxel/overview.md` | 唯一路线、模块边界、固定参数 |
+| WorldGen 地表 | `docs/voxel/worldgen_surface.md` | 可插拔生成器接口 + Modern Surface 参数与规则 |
 | Storage v2 | `docs/voxel/storage.md` | `Chunk(32^3) -> Brick(8^3)`、热/冷分离、索引顺序 |
 | Blocks 热路径 | `docs/voxel/storage_blocks.md` | brick 三态、palette 规则、`PaddedChunk` 契约 |
 | 分层数据 | `docs/voxel/storage_layers.md` | BlockEntity/Entities/WorldState 与 blocks 解耦 |

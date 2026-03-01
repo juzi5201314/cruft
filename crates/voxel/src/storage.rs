@@ -3,10 +3,11 @@ use std::sync::{Arc, RwLock};
 
 use std::collections::HashMap;
 
-use crate::blocks::{BlockStateId, AIR, DIRT, GRASS, STONE};
+use crate::blocks::{BlockStateId, AIR, STONE};
 use crate::coords::{
     brick_coords, brick_index, brick_sub_index, padded_index, ChunkKey, PADDED_CHUNK_SIZE,
 };
+use crate::worldgen::{column_index, ColumnSurface};
 use crate::BRICKS_PER_CHUNK_AXIS;
 use crate::CHUNK_SIZE;
 
@@ -251,13 +252,13 @@ impl Chunk {
         F: FnMut(u8, u8, u8) -> BlockStateId,
     {
         let mut blocks = self.blocks.write().expect("chunk blocks poisoned");
-        blocks.fill_direct(|lx, ly, lz| f(lx, ly, lz));
+        blocks.fill_direct(&mut f);
         self.mark_dirty();
     }
 
-    pub fn fill_terrain_heightmap(&self, base_y: i32, heights: &[i32; 32 * 32]) {
+    pub fn fill_surface_columns(&self, base_y: i32, columns: &[ColumnSurface; 32 * 32]) {
         let mut blocks = self.blocks.write().expect("chunk blocks poisoned");
-        blocks.fill_terrain_heightmap(base_y, heights);
+        blocks.fill_surface_columns(base_y, columns);
         self.mark_dirty();
     }
 }
@@ -372,23 +373,23 @@ impl ChunkBlocks {
         }
     }
 
-    fn fill_terrain_heightmap(&mut self, base_y: i32, heights: &[i32; 32 * 32]) {
-        fn height_at(heights: &[i32; 32 * 32], lx: u8, lz: u8) -> i32 {
-            heights[(lx as usize) + (lz as usize) * 32]
+    fn fill_surface_columns(&mut self, base_y: i32, columns: &[ColumnSurface; 32 * 32]) {
+        fn column_at(columns: &[ColumnSurface; 32 * 32], lx: u8, lz: u8) -> ColumnSurface {
+            columns[column_index(lx, lz)]
         }
 
         for bz in 0..(BRICKS_PER_CHUNK_AXIS as u8) {
             for bx in 0..(BRICKS_PER_CHUNK_AXIS as u8) {
-                // brick 覆盖的 8×8 列的高度范围。
-                let mut min_h = i32::MAX;
                 let mut max_h = i32::MIN;
+                let mut min_stone_cutoff = i32::MAX;
                 for sz in 0..8u8 {
                     for sx in 0..8u8 {
                         let lx = (bx << 3) | sx;
                         let lz = (bz << 3) | sz;
-                        let h = height_at(heights, lx, lz);
-                        min_h = min_h.min(h);
-                        max_h = max_h.max(h);
+                        let col = column_at(columns, lx, lz);
+                        max_h = max_h.max(col.height);
+                        min_stone_cutoff =
+                            min_stone_cutoff.min(col.height - (col.stone_depth as i32));
                     }
                 }
 
@@ -404,9 +405,8 @@ impl ChunkBlocks {
                         continue;
                     }
 
-                    // 若该 brick 的最高 y 也 <= 所有列的 (height-4)，则整 brick 都是 STONE。
-                    // 规则：wy==height 为 GRASS，wy>=height-3 为 DIRT，否则 STONE。
-                    if brick_max_y <= min_h - 4 {
+                    // 若 brick 完全处于所有列的深层（stone cutoff）之下，可直接整砖 STONE。
+                    if brick_max_y <= min_stone_cutoff {
                         self.bricks[bidx] = Brick::Single(STONE);
                         self.brick_solid_counts[bidx] = BRICK_VOXELS as u16;
                         continue;
@@ -422,14 +422,13 @@ impl ChunkBlocks {
                             let lz = (bz << 3) | sz;
                             for sx in 0..8u8 {
                                 let lx = (bx << 3) | sx;
-                                let height = height_at(heights, lx, lz);
-
-                                let v = if wy > height {
+                                let col = column_at(columns, lx, lz);
+                                let v = if wy > col.height {
                                     AIR
-                                } else if wy == height {
-                                    GRASS
-                                } else if wy >= height - 3 {
-                                    DIRT
+                                } else if wy == col.height {
+                                    col.top
+                                } else if wy > col.height - (col.stone_depth as i32) {
+                                    col.filler
                                 } else {
                                     STONE
                                 };
