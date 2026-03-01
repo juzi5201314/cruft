@@ -5,13 +5,18 @@ const MAX_LAYERS: u32 = 256u;
 struct LayerParams {
     seed: u32,
     octaves: u32,
-    _pad0: vec2<u32>,
+    has_layer: u32,
+    _pad0: u32,
 
     noise_scale: f32,
     warp_strength: f32,
-    _pad1: vec2<f32>,
+    layer_ratio: f32,
+    base_palette_len: u32,
 
-    palette: array<vec4<f32>, 4>,
+    top_palette_len: u32,
+    _pad1: vec3<u32>,
+    base_palette: array<vec4<f32>, 4>,
+    top_palette: array<vec4<f32>, 4>,
 };
 
 struct Params {
@@ -89,10 +94,11 @@ fn fbm(uv: vec2<f32>, dims: vec2<u32>, p: LayerParams) -> f32 {
     return sum / max(1e-6, norm);
 }
 
-fn sample_palette(n: f32, p: LayerParams) -> vec4<f32> {
+fn sample_palette_step(n: f32, palette_len: u32, palette: array<vec4<f32>, 4>) -> vec4<f32> {
+    let count = max(1u, min(4u, palette_len));
     let v = clamp(n, 0.0, 0.999999);
-    let idx = u32(floor(v * 4.0));
-    return p.palette[idx];
+    let idx = u32(floor(v * f32(count)));
+    return palette[min(idx, count - 1u)];
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -122,6 +128,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
 
     let n = fbm(uv, dims, p);
-    let color = sample_palette(n, p);
+
+    var color = sample_palette_step(n, p.base_palette_len, p.base_palette);
+    if (p.has_layer != 0u && p.top_palette_len > 0u) {
+        let boundary_y = f32(dims.y) * p.layer_ratio + (n - 0.5) * f32(dims.y) * 0.5;
+        if (f32(gid.y) < boundary_y) {
+            color = sample_palette_step(n, p.top_palette_len, p.top_palette);
+        }
+    }
+
     textureStore(out_tex, vec2<i32>(i32(gid.x), i32(gid.y)), i32(layer), color);
 }

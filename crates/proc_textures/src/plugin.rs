@@ -41,8 +41,9 @@ const WORKGROUP_SIZE: u32 = 8;
 const CANONICAL_TEXTURE_SIZE: u32 = 64;
 const MATERIAL_SHADER_ASSET_PATH: &str = "shaders/procedural_array_material.wgsl";
 const MAX_LAYERS: usize = 256;
+const MAX_PALETTE_COLORS: usize = 4;
 const TEXTURE_DATA_PATH: &str = "texture_data/blocks.texture.json";
-const MIN_NOISE_SCALE: f32 = 1.0;
+const MIN_NOISE_SCALE: f32 = 1e-6;
 
 /// 程序化纹理 array 的句柄（未来供 voxel/material 使用）。
 #[derive(Resource, Clone)]
@@ -66,30 +67,20 @@ enum ProcTexturesSignal {
 #[derive(Resource, Debug, Clone, Default)]
 pub struct ProcTexturesReady(pub bool);
 
+/// 每个方块六个朝向对应到 texture array layer 的映射（faces 展开结果）。
 #[derive(Resource, Debug, Clone, Default)]
-pub struct TextureRegistry {
-    name_to_layer: HashMap<String, u16>,
-}
+pub struct BlockTextureFaceMappings(pub Vec<BlockTextureFaceMapping>);
 
-impl TextureRegistry {
-    pub fn layer_index(&self, name: &str) -> Result<u16, String> {
-        self.name_to_layer
-            .get(name)
-            .copied()
-            .ok_or_else(|| format!("Texture registry missing entry: {name}"))
-    }
-
-    fn from_specs(specs: &[TextureSpec]) -> Result<Self, String> {
-        let mut name_to_layer = HashMap::with_capacity(specs.len());
-        for (i, spec) in specs.iter().enumerate() {
-            let index = u16::try_from(i)
-                .map_err(|_| format!("Texture layer index overflows u16: {i}"))?;
-            if name_to_layer.insert(spec.name.clone(), index).is_some() {
-                return Err(format!("Duplicate texture name: {}", spec.name));
-            }
-        }
-        Ok(Self { name_to_layer })
-    }
+#[derive(Debug, Clone)]
+pub struct BlockTextureFaceMapping {
+    pub name: String,
+    pub legacy: u32,
+    pub top: u32,
+    pub bottom: u32,
+    pub north: u32,
+    pub south: u32,
+    pub east: u32,
+    pub west: u32,
 }
 
 #[derive(Resource)]
@@ -191,21 +182,27 @@ fn setup_procedural_textures_from_data(
         return;
     };
 
-    let specs = &data.specs;
+    let layers = &data.layers;
+    if layers.is_empty() {
+        let message = format!("{TEXTURE_DATA_PATH} must contain at least one texture layer");
+        *status = ProcTexturesStatus::Failed(message.clone());
+        log::error!("{message}");
+        return;
+    }
+    if layers.len() > MAX_LAYERS {
+        let message = format!(
+            "Too many texture layers in {TEXTURE_DATA_PATH}: got {}, MAX_LAYERS={MAX_LAYERS}",
+            layers.len()
+        );
+        *status = ProcTexturesStatus::Failed(message.clone());
+        log::error!("{message}");
+        return;
+    }
 
-    let registry = match TextureRegistry::from_specs(specs) {
-        Ok(registry) => registry,
-        Err(message) => {
-            *status = ProcTexturesStatus::Failed(message.clone());
-            log::error!("Texture registry build failed: {message}");
-            return;
-        }
-    };
-
-    let layer_count = match u32::try_from(specs.len()) {
+    let layer_count = match u32::try_from(layers.len()) {
         Ok(layer_count) => layer_count,
         Err(_) => {
-            let message = format!("Too many texture layers in {TEXTURE_DATA_PATH}: {}", specs.len());
+            let message = format!("Too many texture layers in {TEXTURE_DATA_PATH}: {}", layers.len());
             *status = ProcTexturesStatus::Failed(message.clone());
             log::error!("{message}");
             return;
@@ -244,8 +241,8 @@ fn setup_procedural_textures_from_data(
     commands.insert_resource(ProceduralTextureImages {
         array: texture.clone(),
     });
-    commands.insert_resource(ProceduralTextureArrayParams::from_specs(specs));
-    commands.insert_resource(registry);
+    commands.insert_resource(ProceduralTextureArrayParams::from_layers(layers));
+    commands.insert_resource(BlockTextureFaceMappings(data.face_mappings.clone()));
     commands.insert_resource(BlockTextureArray(texture));
     commands.insert_resource(ProceduralTextureInitialized);
 }
@@ -274,11 +271,16 @@ struct ProceduralTextureGenerationMetrics {
 struct ProceduralTextureLayerParams {
     seed: u32,
     octaves: u32,
-    _pad0: UVec2,
+    has_layer: u32,
+    _pad0: u32,
     noise_scale: f32,
     warp_strength: f32,
-    _pad1: Vec2,
-    palette: [Vec4; 4],
+    layer_ratio: f32,
+    base_palette_len: u32,
+    top_palette_len: u32,
+    _pad1: UVec3,
+    base_palette: [Vec4; MAX_PALETTE_COLORS],
+    top_palette: [Vec4; MAX_PALETTE_COLORS],
 }
 
 #[derive(Resource, Clone, ExtractResource, ShaderType)]
@@ -289,20 +291,25 @@ struct ProceduralTextureArrayParams {
 }
 
 impl ProceduralTextureArrayParams {
-    fn from_specs(specs: &[TextureSpec]) -> Self {
-        let layer_count = u32::try_from(specs.len()).expect("Too many layers");
+    fn from_layers(layers_specs: &[ExpandedLayerSpec]) -> Self {
+        let layer_count = u32::try_from(layers_specs.len()).expect("Too many layers");
 
         let mut layers = std::array::from_fn(|_| ProceduralTextureLayerParams {
             seed: 0,
             octaves: 1,
-            _pad0: UVec2::ZERO,
+            has_layer: 0,
+            _pad0: 0,
             noise_scale: 1.0,
             warp_strength: 0.0,
-            _pad1: Vec2::ZERO,
-            palette: [Vec4::ZERO; 4],
+            layer_ratio: 0.0,
+            base_palette_len: 1,
+            top_palette_len: 0,
+            _pad1: UVec3::ZERO,
+            base_palette: [Vec4::ZERO; MAX_PALETTE_COLORS],
+            top_palette: [Vec4::ZERO; MAX_PALETTE_COLORS],
         });
 
-        for (i, spec) in specs.iter().enumerate() {
+        for (i, spec) in layers_specs.iter().enumerate() {
             layers[i] = spec.to_layer_params();
         }
 
@@ -314,35 +321,22 @@ impl ProceduralTextureArrayParams {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum TextureStyle {
-    MinecraftQuantized,
-    HdPixelArt,
-    HdRealistic,
-    VectorToon,
-}
-
-impl Default for TextureStyle {
-    fn default() -> Self {
-        Self::MinecraftQuantized
-    }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct TextureSpec {
-    name: String,
+#[derive(Debug, Clone)]
+struct FaceLayerSpec {
     size: u32,
     seed: u32,
     octaves: u32,
     noise_scale: f32,
     warp_strength: f32,
-    palette: [[u8; 3]; 4],
-    #[serde(default)]
-    style: TextureStyle,
+    has_layer: bool,
+    layer_ratio: f32,
+    base_palette: [[u8; 3]; MAX_PALETTE_COLORS],
+    base_palette_len: u32,
+    top_palette: [[u8; 3]; MAX_PALETTE_COLORS],
+    top_palette_len: u32,
 }
 
-impl TextureSpec {
+impl FaceLayerSpec {
     fn to_layer_params(&self) -> ProceduralTextureLayerParams {
         let requested_size = self.size.max(1);
         let ratio = CANONICAL_TEXTURE_SIZE as f32 / requested_size as f32;
@@ -352,34 +346,43 @@ impl TextureSpec {
         let noise_scale = (self.noise_scale * ratio).max(MIN_NOISE_SCALE);
         let warp_strength = (self.warp_strength / ratio).max(0.0);
 
-        match self.style {
-            TextureStyle::MinecraftQuantized => {}
-            _ => {
-                log::warn!(
-                    "Texture '{}' requests style {:?}, fallback to minecraft_quantized",
-                    self.name,
-                    self.style
-                );
-            }
-        }
-
         ProceduralTextureLayerParams {
             seed: self.seed,
             octaves: self.octaves.max(1),
-            _pad0: UVec2::ZERO,
+            has_layer: u32::from(self.has_layer),
+            _pad0: 0,
             noise_scale,
             warp_strength,
-            _pad1: Vec2::ZERO,
-            palette: self.palette.map(|rgb| {
-                Vec4::new(
-                    srgb_u8_to_linear(rgb[0]),
-                    srgb_u8_to_linear(rgb[1]),
-                    srgb_u8_to_linear(rgb[2]),
-                    1.0,
-                )
-            }),
+            layer_ratio: self.layer_ratio,
+            base_palette_len: self.base_palette_len.max(1),
+            top_palette_len: self.top_palette_len,
+            _pad1: UVec3::ZERO,
+            base_palette: self.base_palette.map(rgb_u8_to_linear_vec4),
+            top_palette: self.top_palette.map(rgb_u8_to_linear_vec4),
         }
     }
+}
+
+#[derive(Debug, Clone)]
+struct ExpandedLayerSpec {
+    _block_name: String,
+    _face_slot: FaceSlot,
+    layer: FaceLayerSpec,
+}
+
+impl ExpandedLayerSpec {
+    fn to_layer_params(&self) -> ProceduralTextureLayerParams {
+        self.layer.to_layer_params()
+    }
+}
+
+fn rgb_u8_to_linear_vec4(rgb: [u8; 3]) -> Vec4 {
+    Vec4::new(
+        srgb_u8_to_linear(rgb[0]),
+        srgb_u8_to_linear(rgb[1]),
+        srgb_u8_to_linear(rgb[2]),
+        1.0,
+    )
 }
 
 fn srgb_u8_to_linear(v: u8) -> f32 {
@@ -393,13 +396,8 @@ fn srgb_u8_to_linear(v: u8) -> f32 {
 
 #[derive(Asset, TypePath, Debug, Clone)]
 struct TextureDataAsset {
-    specs: Vec<TextureSpec>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct TextureDataV1 {
-    schema_version: u32,
-    textures: Vec<TextureSpec>,
+    layers: Vec<ExpandedLayerSpec>,
+    face_mappings: Vec<BlockTextureFaceMapping>,
 }
 
 #[derive(Default, TypePath)]
@@ -410,6 +408,14 @@ struct TextureDataLoadError {
     message: String,
 }
 
+impl TextureDataLoadError {
+    fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
+
 impl std::fmt::Display for TextureDataLoadError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.message)
@@ -418,66 +424,471 @@ impl std::fmt::Display for TextureDataLoadError {
 
 impl std::error::Error for TextureDataLoadError {}
 
-fn validate_specs(specs: &[TextureSpec]) -> Result<(), TextureDataLoadError> {
-    if specs.is_empty() {
-        return Err(TextureDataLoadError {
-            message: format!("{TEXTURE_DATA_PATH} must contain at least one texture spec"),
-        });
-    }
-    if specs.len() > MAX_LAYERS {
-        return Err(TextureDataLoadError {
-            message: format!(
-                "Too many texture specs in {TEXTURE_DATA_PATH}: got {}, MAX_LAYERS={MAX_LAYERS}",
-                specs.len()
-            ),
-        });
-    }
-
-    let mut names = HashMap::new();
-    for spec in specs {
-        if names.insert(spec.name.clone(), true).is_some() {
-            return Err(TextureDataLoadError {
-                message: format!("Duplicate texture name in {TEXTURE_DATA_PATH}: {}", spec.name),
-            });
-        }
-        if spec.size == 0 {
-            return Err(TextureDataLoadError {
-                message: format!("Texture '{}' has invalid size=0", spec.name),
-            });
-        }
-        if spec.noise_scale <= 0.0 {
-            return Err(TextureDataLoadError {
-                message: format!("Texture '{}' has invalid noise_scale={}", spec.name, spec.noise_scale),
-            });
-        }
-    }
-
-    Ok(())
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum FaceSlot {
+    All,
+    Top,
+    Bottom,
+    Sides,
+    North,
+    South,
+    East,
+    West,
 }
 
-fn parse_texture_specs_from_bytes(bytes: &[u8]) -> Result<Vec<TextureSpec>, TextureDataLoadError> {
-    let value: serde_json::Value = serde_json::from_slice(bytes).map_err(|e| TextureDataLoadError {
-        message: e.to_string(),
-    })?;
-
-    let specs = if value.is_array() {
-        serde_json::from_value::<Vec<TextureSpec>>(value).map_err(|e| TextureDataLoadError {
-            message: format!("Invalid legacy v1 payload: {e}"),
-        })?
-    } else {
-        let wrapper = serde_json::from_slice::<TextureDataV1>(bytes).map_err(|e| TextureDataLoadError {
-            message: format!("Invalid schema wrapper: {e}"),
-        })?;
-        if wrapper.schema_version != 1 {
-            return Err(TextureDataLoadError {
-                message: format!("Unsupported schema_version: {}", wrapper.schema_version),
-            });
+impl FaceSlot {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::All => "all",
+            Self::Top => "top",
+            Self::Bottom => "bottom",
+            Self::Sides => "sides",
+            Self::North => "north",
+            Self::South => "south",
+            Self::East => "east",
+            Self::West => "west",
         }
-        wrapper.textures
+    }
+
+    fn seed_salt(self) -> u32 {
+        match self {
+            Self::All => 0xA1F0_0001,
+            Self::Top => 0xA1F0_0002,
+            Self::Bottom => 0xA1F0_0003,
+            Self::Sides => 0xA1F0_0004,
+            Self::North => 0xA1F0_0005,
+            Self::South => 0xA1F0_0006,
+            Self::East => 0xA1F0_0007,
+            Self::West => 0xA1F0_0008,
+        }
+    }
+}
+
+const ALL_FACE_SLOTS: [FaceSlot; 8] = [
+    FaceSlot::All,
+    FaceSlot::Top,
+    FaceSlot::Bottom,
+    FaceSlot::Sides,
+    FaceSlot::North,
+    FaceSlot::South,
+    FaceSlot::East,
+    FaceSlot::West,
+];
+
+const LEGACY_PRIMARY_FACE_PRIORITY: [FaceSlot; 8] = [
+    FaceSlot::All,
+    FaceSlot::Sides,
+    FaceSlot::Top,
+    FaceSlot::Bottom,
+    FaceSlot::North,
+    FaceSlot::South,
+    FaceSlot::East,
+    FaceSlot::West,
+];
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum TextureStyle {
+    Minecraft,
+    HdPixelArt,
+    HdRealistic,
+    VectorToon,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TextureSpecInput {
+    name: String,
+    size: u32,
+    seed: u32,
+    style: TextureStyle,
+    faces: TextureFacesInput,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TextureFacesInput {
+    #[serde(default)]
+    all: Option<FaceSpecInput>,
+    #[serde(default)]
+    top: Option<FaceSpecInput>,
+    #[serde(default)]
+    bottom: Option<FaceSpecInput>,
+    #[serde(default)]
+    sides: Option<FaceSpecInput>,
+    #[serde(default)]
+    north: Option<FaceSpecInput>,
+    #[serde(default)]
+    south: Option<FaceSpecInput>,
+    #[serde(default)]
+    east: Option<FaceSpecInput>,
+    #[serde(default)]
+    west: Option<FaceSpecInput>,
+}
+
+impl TextureFacesInput {
+    fn get(&self, slot: FaceSlot) -> Option<&FaceSpecInput> {
+        match slot {
+            FaceSlot::All => self.all.as_ref(),
+            FaceSlot::Top => self.top.as_ref(),
+            FaceSlot::Bottom => self.bottom.as_ref(),
+            FaceSlot::Sides => self.sides.as_ref(),
+            FaceSlot::North => self.north.as_ref(),
+            FaceSlot::South => self.south.as_ref(),
+            FaceSlot::East => self.east.as_ref(),
+            FaceSlot::West => self.west.as_ref(),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        ALL_FACE_SLOTS.iter().all(|slot| self.get(*slot).is_none())
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FaceSpecInput {
+    has_layer: bool,
+    #[serde(default)]
+    layer_ratio: Option<f32>,
+    #[serde(default)]
+    top_layer_palette: Option<Vec<[u8; 3]>>,
+    base: BaseSpecInput,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BaseSpecInput {
+    palette: Vec<[u8; 3]>,
+    #[serde(default = "default_noise_scale")]
+    noise_scale: f32,
+    #[serde(default = "default_octaves")]
+    octaves: u32,
+    #[serde(default)]
+    warp_strength: f32,
+}
+
+fn default_noise_scale() -> f32 {
+    1.0
+}
+
+fn default_octaves() -> u32 {
+    4
+}
+
+#[derive(Debug, Clone)]
+struct PreparedBlockSpec {
+    name: String,
+    primary_face: FaceSlot,
+    face_specs: HashMap<FaceSlot, FaceLayerSpec>,
+    layer_indices: HashMap<FaceSlot, u32>,
+}
+
+fn build_texture_data(
+    specs: Vec<TextureSpecInput>,
+) -> Result<TextureDataAsset, TextureDataLoadError> {
+    if specs.is_empty() {
+        return Err(TextureDataLoadError::new(format!(
+            "{TEXTURE_DATA_PATH} must contain at least one texture spec"
+        )));
+    }
+
+    let mut blocks = Vec::with_capacity(specs.len());
+    for spec in specs {
+        if spec.faces.is_empty() {
+            return Err(TextureDataLoadError::new(format!(
+                "texture `{}` must define at least one face in `faces`",
+                spec.name
+            )));
+        }
+
+        if spec.style != TextureStyle::Minecraft {
+            log::warn!(
+                "texture `{}` style={:?} 暂未在 compute shader 中实现，当前按 minecraft 风格生成",
+                spec.name,
+                spec.style
+            );
+        }
+
+        let mut face_specs = HashMap::new();
+        for slot in ALL_FACE_SLOTS {
+            let Some(face_input) = spec.faces.get(slot) else {
+                continue;
+            };
+            let normalized =
+                normalize_face_spec(&spec.name, spec.size, spec.seed, slot, face_input)?;
+            face_specs.insert(slot, normalized);
+        }
+
+        let Some(primary_face) = LEGACY_PRIMARY_FACE_PRIORITY
+            .iter()
+            .copied()
+            .find(|slot| face_specs.contains_key(slot))
+        else {
+            return Err(TextureDataLoadError::new(format!(
+                "texture `{}` has empty faces after normalization",
+                spec.name
+            )));
+        };
+
+        blocks.push(PreparedBlockSpec {
+            name: spec.name,
+            primary_face,
+            face_specs,
+            layer_indices: HashMap::new(),
+        });
+    }
+
+    let mut layers = Vec::new();
+
+    // 第一轮：每个 block 先放一个 primary layer，保持 legacy material_key 的稳定索引。
+    for block in &mut blocks {
+        let Some(primary_spec) = block.face_specs.get(&block.primary_face) else {
+            return Err(TextureDataLoadError::new(format!(
+                "texture `{}` missing primary face `{}`",
+                block.name,
+                block.primary_face.as_str()
+            )));
+        };
+        let layer_index =
+            push_expanded_layer(&mut layers, &block.name, block.primary_face, primary_spec)?;
+        block.layer_indices.insert(block.primary_face, layer_index);
+    }
+
+    // 第二轮：补齐其余显式定义的 faces。
+    for block in &mut blocks {
+        for slot in ALL_FACE_SLOTS {
+            if slot == block.primary_face {
+                continue;
+            }
+            let Some(spec) = block.face_specs.get(&slot) else {
+                continue;
+            };
+            let layer_index = push_expanded_layer(&mut layers, &block.name, slot, spec)?;
+            block.layer_indices.insert(slot, layer_index);
+        }
+    }
+
+    if layers.len() > MAX_LAYERS {
+        return Err(TextureDataLoadError::new(format!(
+            "Too many expanded texture layers in {TEXTURE_DATA_PATH}: got {}, MAX_LAYERS={MAX_LAYERS}",
+            layers.len()
+        )));
+    }
+
+    let mut face_mappings = Vec::with_capacity(blocks.len());
+    for block in &blocks {
+        face_mappings.push(build_face_mapping(block)?);
+    }
+
+    Ok(TextureDataAsset {
+        layers,
+        face_mappings,
+    })
+}
+
+fn push_expanded_layer(
+    layers: &mut Vec<ExpandedLayerSpec>,
+    block_name: &str,
+    face_slot: FaceSlot,
+    layer_spec: &FaceLayerSpec,
+) -> Result<u32, TextureDataLoadError> {
+    if layers.len() >= MAX_LAYERS {
+        return Err(TextureDataLoadError::new(format!(
+            "expanded layers exceed MAX_LAYERS={MAX_LAYERS} while processing `{}`",
+            block_name
+        )));
+    }
+    let index = u32::try_from(layers.len()).map_err(|_| {
+        TextureDataLoadError::new(format!(
+            "layer index overflow while processing `{}`",
+            block_name
+        ))
+    })?;
+    layers.push(ExpandedLayerSpec {
+        _block_name: block_name.to_string(),
+        _face_slot: face_slot,
+        layer: layer_spec.clone(),
+    });
+    Ok(index)
+}
+
+fn build_face_mapping(
+    block: &PreparedBlockSpec,
+) -> Result<BlockTextureFaceMapping, TextureDataLoadError> {
+    let Some(&legacy) = block.layer_indices.get(&block.primary_face) else {
+        return Err(TextureDataLoadError::new(format!(
+            "texture `{}` missing legacy layer index",
+            block.name
+        )));
     };
 
-    validate_specs(&specs)?;
-    Ok(specs)
+    Ok(BlockTextureFaceMapping {
+        name: block.name.clone(),
+        legacy,
+        top: resolve_layer_index(
+            &block.layer_indices,
+            legacy,
+            [FaceSlot::Top, FaceSlot::Sides, FaceSlot::All],
+        ),
+        bottom: resolve_layer_index(
+            &block.layer_indices,
+            legacy,
+            [FaceSlot::Bottom, FaceSlot::Sides, FaceSlot::All],
+        ),
+        north: resolve_layer_index(
+            &block.layer_indices,
+            legacy,
+            [FaceSlot::North, FaceSlot::Sides, FaceSlot::All],
+        ),
+        south: resolve_layer_index(
+            &block.layer_indices,
+            legacy,
+            [FaceSlot::South, FaceSlot::Sides, FaceSlot::All],
+        ),
+        east: resolve_layer_index(
+            &block.layer_indices,
+            legacy,
+            [FaceSlot::East, FaceSlot::Sides, FaceSlot::All],
+        ),
+        west: resolve_layer_index(
+            &block.layer_indices,
+            legacy,
+            [FaceSlot::West, FaceSlot::Sides, FaceSlot::All],
+        ),
+    })
+}
+
+fn resolve_layer_index(
+    indices: &HashMap<FaceSlot, u32>,
+    fallback: u32,
+    priority: [FaceSlot; 3],
+) -> u32 {
+    for slot in priority {
+        if let Some(index) = indices.get(&slot) {
+            return *index;
+        }
+    }
+    fallback
+}
+
+fn normalize_face_spec(
+    block_name: &str,
+    block_size: u32,
+    block_seed: u32,
+    face_slot: FaceSlot,
+    input: &FaceSpecInput,
+) -> Result<FaceLayerSpec, TextureDataLoadError> {
+    if !input.base.noise_scale.is_finite() || input.base.noise_scale <= 0.0 {
+        return Err(TextureDataLoadError::new(format!(
+            "texture `{}` face `{}` has invalid `base.noise_scale`: {} (must be > 0)",
+            block_name,
+            face_slot.as_str(),
+            input.base.noise_scale
+        )));
+    }
+    if input.base.octaves == 0 {
+        return Err(TextureDataLoadError::new(format!(
+            "texture `{}` face `{}` has invalid `base.octaves`: 0 (must be >= 1)",
+            block_name,
+            face_slot.as_str()
+        )));
+    }
+    if !input.base.warp_strength.is_finite() || input.base.warp_strength < 0.0 {
+        return Err(TextureDataLoadError::new(format!(
+            "texture `{}` face `{}` has invalid `base.warp_strength`: {} (must be >= 0)",
+            block_name,
+            face_slot.as_str(),
+            input.base.warp_strength
+        )));
+    }
+
+    let base_path = format!(
+        "texture `{}` face `{}` base.palette",
+        block_name,
+        face_slot.as_str()
+    );
+    let (base_palette, base_palette_len) = encode_palette(&input.base.palette, &base_path)?;
+
+    let (top_palette, top_palette_len, layer_ratio) = if input.has_layer {
+        let Some(layer_ratio) = input.layer_ratio else {
+            return Err(TextureDataLoadError::new(format!(
+                "texture `{}` face `{}` has_layer=true but `layer_ratio` is missing",
+                block_name,
+                face_slot.as_str()
+            )));
+        };
+        if !layer_ratio.is_finite() || !(0.0..=1.0).contains(&layer_ratio) {
+            return Err(TextureDataLoadError::new(format!(
+                "texture `{}` face `{}` has invalid `layer_ratio`: {} (must be within 0..1)",
+                block_name,
+                face_slot.as_str(),
+                layer_ratio
+            )));
+        }
+        let Some(top_colors) = input.top_layer_palette.as_ref() else {
+            return Err(TextureDataLoadError::new(format!(
+                "texture `{}` face `{}` has_layer=true but `top_layer_palette` is missing",
+                block_name,
+                face_slot.as_str()
+            )));
+        };
+        let top_path = format!(
+            "texture `{}` face `{}` top_layer_palette",
+            block_name,
+            face_slot.as_str()
+        );
+        let (top_palette, top_palette_len) = encode_palette(top_colors, &top_path)?;
+        (top_palette, top_palette_len, layer_ratio)
+    } else {
+        if input.layer_ratio.is_some() || input.top_layer_palette.is_some() {
+            log::warn!(
+                "texture `{}` face `{}` has_layer=false，但提供了 layer 字段；这些字段将被忽略",
+                block_name,
+                face_slot.as_str()
+            );
+        }
+        ([[0; 3]; MAX_PALETTE_COLORS], 0, 0.0)
+    };
+
+    Ok(FaceLayerSpec {
+        size: block_size.max(1),
+        seed: block_seed ^ face_slot.seed_salt(),
+        octaves: input.base.octaves.max(1),
+        noise_scale: input.base.noise_scale,
+        warp_strength: input.base.warp_strength,
+        has_layer: input.has_layer,
+        layer_ratio,
+        base_palette,
+        base_palette_len,
+        top_palette,
+        top_palette_len,
+    })
+}
+
+fn encode_palette(
+    palette: &[[u8; 3]],
+    field_path: &str,
+) -> Result<([[u8; 3]; MAX_PALETTE_COLORS], u32), TextureDataLoadError> {
+    if palette.len() < 2 {
+        return Err(TextureDataLoadError::new(format!(
+            "{field_path} must contain at least 2 colors"
+        )));
+    }
+    if palette.len() > MAX_PALETTE_COLORS {
+        return Err(TextureDataLoadError::new(format!(
+            "{field_path} contains {} colors, but current GPU layout supports at most {MAX_PALETTE_COLORS}",
+            palette.len()
+        )));
+    }
+
+    let mut out = [[0u8; 3]; MAX_PALETTE_COLORS];
+    for (i, rgb) in palette.iter().enumerate() {
+        out[i] = *rgb;
+    }
+    let len = u32::try_from(palette.len())
+        .map_err(|_| TextureDataLoadError::new(format!("{field_path} color count overflow")))?;
+    Ok((out, len))
 }
 
 impl bevy::asset::AssetLoader for TextureDataLoader {
@@ -498,9 +909,11 @@ impl bevy::asset::AssetLoader for TextureDataLoader {
             .map_err(|e| TextureDataLoadError {
                 message: e.to_string(),
             })?;
-
-        let specs = parse_texture_specs_from_bytes(&bytes)?;
-        Ok(TextureDataAsset { specs })
+        let specs: Vec<TextureSpecInput> =
+            serde_json::from_slice(&bytes).map_err(|e| TextureDataLoadError {
+                message: e.to_string(),
+            })?;
+        build_texture_data(specs)
     }
 
     fn extensions(&self) -> &[&str] {
@@ -508,47 +921,6 @@ impl bevy::asset::AssetLoader for TextureDataLoader {
     }
 }
 
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn registry_maps_names_to_layers() {
-        let specs = vec![
-            TextureSpec { name: "a".into(), size: 16, seed: 1, octaves: 1, noise_scale: 1.0, warp_strength: 0.0, palette: [[0,0,0];4], style: TextureStyle::MinecraftQuantized },
-            TextureSpec { name: "b".into(), size: 16, seed: 2, octaves: 1, noise_scale: 1.0, warp_strength: 0.0, palette: [[0,0,0];4], style: TextureStyle::MinecraftQuantized },
-        ];
-        let registry = TextureRegistry::from_specs(&specs).expect("registry");
-        assert_eq!(registry.layer_index("a").unwrap(), 0);
-        assert_eq!(registry.layer_index("b").unwrap(), 1);
-        assert!(registry.layer_index("missing").is_err());
-    }
-
-    #[test]
-    fn duplicate_names_fail() {
-        let specs = vec![
-            TextureSpec { name: "dup".into(), size: 16, seed: 1, octaves: 1, noise_scale: 1.0, warp_strength: 0.0, palette: [[0,0,0];4], style: TextureStyle::MinecraftQuantized },
-            TextureSpec { name: "dup".into(), size: 16, seed: 2, octaves: 1, noise_scale: 1.0, warp_strength: 0.0, palette: [[0,0,0];4], style: TextureStyle::MinecraftQuantized },
-        ];
-        assert!(TextureRegistry::from_specs(&specs).is_err());
-    }
-
-    #[test]
-    fn schema_version_dispatch_works() {
-        let v1_wrapped = br#"{"schema_version":1,"textures":[{"name":"ok","size":16,"seed":1,"octaves":1,"noise_scale":1.0,"warp_strength":0.0,"palette":[[0,0,0],[1,1,1],[2,2,2],[3,3,3]]}]}"#;
-        assert!(parse_texture_specs_from_bytes(v1_wrapped).is_ok());
-
-        let legacy = br#"[{"name":"ok","size":16,"seed":1,"octaves":1,"noise_scale":1.0,"warp_strength":0.0,"palette":[[0,0,0],[1,1,1],[2,2,2],[3,3,3]]}]"#;
-        assert!(parse_texture_specs_from_bytes(legacy).is_ok());
-    }
-
-    #[test]
-    fn invalid_payload_returns_error() {
-        let bad = br#"{"schema_version":2,"textures":[]}"#;
-        assert!(parse_texture_specs_from_bytes(bad).is_err());
-    }
-}
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct ProceduralArrayMaterial {

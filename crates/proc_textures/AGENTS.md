@@ -13,7 +13,7 @@
 | 主实现 | `crates/proc_textures/src/plugin.rs` | asset loader + 目标纹理创建 + RenderApp pipeline + RenderGraph node |
 | 计算 shader | `assets/shaders/procedural_texture.wgsl` | storage write 到 texture array |
 | 材质 shader | `assets/shaders/procedural_array_material.wgsl` | array 采样（fragment） |
-| 数据源 | `assets/texture_data/blocks.texture.json` | 纹理 layer specs |
+| 数据源 | `assets/texture_data/blocks.texture.json` | 纹理 `faces` specs（在 loader 中展开为 array layers） |
 | 运行时装配 | `crates/app/src/main.rs` | `ProcTexturesPlugin` 在这里启用 |
 
 ## Rules (project-specific)
@@ -30,7 +30,7 @@
 ## Parameters / limits
 
 - `CANONICAL_TEXTURE_SIZE = 64`，`MAX_LAYERS = 256`。
-- JSON 的 `size` 通过 “语义缩放” 归一到 64×64（`TextureSpec::to_layer_params()` 调整 `noise_scale/warp_strength`）。
+- JSON 的 `size` 通过 “语义缩放” 归一到 64×64（`FaceLayerSpec::to_layer_params()` 调整 `noise_scale/warp_strength`）。
 
 ## Gotchas
 

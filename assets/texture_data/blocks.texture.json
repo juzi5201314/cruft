@@ -1,45 +1,160 @@
-{
-  "schema_version": 1,
-  "textures": [
-    {
-      "name": "minecraft_grass",
-      "size": 64,
-      "seed": 9001,
-      "octaves": 3,
-      "noise_scale": 11.2,
-      "warp_strength": 0.025,
-      "palette": [[48, 94, 36], [62, 116, 44], [85, 140, 58], [120, 170, 78]],
-      "style": "minecraft_quantized"
-    },
-    {
-      "name": "minecraft_dirt",
-      "size": 64,
-      "seed": 1337,
-      "octaves": 4,
-      "noise_scale": 4.0,
-      "warp_strength": 0.075,
-      "palette": [[71, 47, 28], [91, 62, 38], [110, 80, 50], [140, 110, 70]],
-      "style": "minecraft_quantized"
-    },
-    {
-      "name": "minecraft_snowy_dirt",
-      "size": 64,
-      "seed": 2024,
-      "octaves": 4,
-      "noise_scale": 2.2,
-      "warp_strength": 0.12,
-      "palette": [[220, 220, 235], [240, 240, 255], [160, 150, 120], [110, 80, 50]],
-      "style": "minecraft_quantized"
-    },
-    {
-      "name": "minecraft_stone",
-      "size": 64,
-      "seed": 42,
-      "octaves": 4,
-      "noise_scale": 1.0,
-      "warp_strength": 0.10,
-      "palette": [[80, 80, 85], [105, 105, 112], [130, 130, 140], [160, 160, 170]],
-      "style": "minecraft_quantized"
+[
+  {
+    "name": "minecraft_grass",
+    "size": 64,
+    "seed": 9001,
+    "style": "minecraft",
+    "faces": {
+      "top": {
+        "has_layer": false,
+        "base": {
+          "palette": [
+            [48, 94, 36],
+            [62, 116, 44],
+            [85, 140, 58],
+            [120, 170, 78]
+          ],
+          "noise_scale": 11.2,
+          "octaves": 3,
+          "warp_strength": 0.025
+        }
+      },
+      "sides": {
+        "has_layer": true,
+        "layer_ratio": 0.36,
+        "top_layer_palette": [
+          [48, 94, 36],
+          [62, 116, 44],
+          [85, 140, 58],
+          [120, 170, 78]
+        ],
+        "base": {
+          "palette": [
+            [71, 47, 28],
+            [91, 62, 38],
+            [110, 80, 50],
+            [140, 110, 70]
+          ],
+          "noise_scale": 5.2,
+          "octaves": 4,
+          "warp_strength": 0.06
+        }
+      },
+      "bottom": {
+        "has_layer": false,
+        "base": {
+          "palette": [
+            [71, 47, 28],
+            [91, 62, 38],
+            [110, 80, 50],
+            [140, 110, 70]
+          ],
+          "noise_scale": 4.0,
+          "octaves": 4,
+          "warp_strength": 0.075
+        }
+      }
     }
-  ]
-}
+  },
+  {
+    "name": "minecraft_dirt",
+    "size": 64,
+    "seed": 1337,
+    "style": "minecraft",
+    "faces": {
+      "all": {
+        "has_layer": false,
+        "base": {
+          "palette": [
+            [71, 47, 28],
+            [91, 62, 38],
+            [110, 80, 50],
+            [140, 110, 70]
+          ],
+          "noise_scale": 4.0,
+          "octaves": 4,
+          "warp_strength": 0.075
+        }
+      }
+    }
+  },
+  {
+    "name": "minecraft_snowy_dirt",
+    "size": 64,
+    "seed": 2024,
+    "style": "minecraft",
+    "faces": {
+      "top": {
+        "has_layer": false,
+        "base": {
+          "palette": [
+            [220, 220, 235],
+            [235, 235, 248],
+            [245, 245, 255],
+            [255, 255, 255]
+          ],
+          "noise_scale": 1.8,
+          "octaves": 3,
+          "warp_strength": 0.05
+        }
+      },
+      "sides": {
+        "has_layer": true,
+        "layer_ratio": 0.35,
+        "top_layer_palette": [
+          [220, 220, 235],
+          [235, 235, 248],
+          [245, 245, 255],
+          [255, 255, 255]
+        ],
+        "base": {
+          "palette": [
+            [71, 47, 28],
+            [91, 62, 38],
+            [110, 80, 50],
+            [140, 110, 70]
+          ],
+          "noise_scale": 2.2,
+          "octaves": 4,
+          "warp_strength": 0.12
+        }
+      },
+      "bottom": {
+        "has_layer": false,
+        "base": {
+          "palette": [
+            [71, 47, 28],
+            [91, 62, 38],
+            [110, 80, 50],
+            [140, 110, 70]
+          ],
+          "noise_scale": 4.0,
+          "octaves": 4,
+          "warp_strength": 0.075
+        }
+      }
+    }
+  },
+  {
+    "name": "minecraft_stone",
+    "size": 64,
+    "seed": 42,
+    "style": "minecraft",
+    "faces": {
+      "all": {
+        "has_layer": false,
+        "base": {
+          "palette": [
+            [80, 80, 85],
+            [105, 105, 112],
+            [130, 130, 140],
+            [160, 160, 170]
+          ],
+          "noise_scale": 1.0,
+          "octaves": 4,
+          "warp_strength": 0.1
+        }
+      }
+    }
+  }
+]

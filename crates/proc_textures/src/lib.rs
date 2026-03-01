@@ -3,5 +3,6 @@
 mod plugin;
 
 pub use plugin::{
-    BlockTextureArray, ProcTexturesPlugin, ProcTexturesReady, ProcTexturesStatus, TextureRegistry,
+    BlockTextureArray, BlockTextureFaceMapping, BlockTextureFaceMappings, ProcTexturesPlugin,
+    ProcTexturesReady, ProcTexturesStatus,
 };
