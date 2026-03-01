@@ -21,7 +21,9 @@ use bevy::{
         render_asset::RenderAssets,
         render_graph::{self, RenderGraph, RenderLabel},
         render_resource::{
-            binding_types::{texture_storage_2d_array, uniform_buffer},
+            binding_types::{
+                storage_buffer_read_only_sized, texture_storage_2d_array, uniform_buffer,
+            },
             *,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
@@ -41,7 +43,6 @@ const WORKGROUP_SIZE: u32 = 8;
 const CANONICAL_TEXTURE_SIZE: u32 = 64;
 const MATERIAL_SHADER_ASSET_PATH: &str = "shaders/procedural_array_material.wgsl";
 const MAX_LAYERS: usize = 256;
-const MAX_PALETTE_COLORS: usize = 4;
 const TEXTURE_DATA_PATH: &str = "texture_data/blocks.texture.json";
 const MIN_NOISE_SCALE: f32 = 1e-6;
 
@@ -102,6 +103,7 @@ impl Plugin for ProcTexturesPlugin {
             .add_plugins((
                 ExtractResourcePlugin::<ProceduralTextureImages>::default(),
                 ExtractResourcePlugin::<ProceduralTextureArrayParams>::default(),
+                ExtractResourcePlugin::<ProceduralTexturePaletteStorage>::default(),
                 ExtractResourcePlugin::<ProceduralTextureGenerationMetrics>::default(),
             ))
             .init_asset::<TextureDataAsset>()
@@ -118,7 +120,11 @@ impl Plugin for ProcTexturesPlugin {
             .add_systems(RenderStartup, init_procedural_texture_pipeline)
             .add_systems(
                 Render,
-                prepare_procedural_texture_params_buffer.in_set(RenderSystems::PrepareBindGroups),
+                (
+                    prepare_procedural_texture_params_buffer,
+                    prepare_procedural_texture_palette_buffer,
+                )
+                    .in_set(RenderSystems::PrepareBindGroups),
             );
 
         let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
@@ -241,7 +247,9 @@ fn setup_procedural_textures_from_data(
     commands.insert_resource(ProceduralTextureImages {
         array: texture.clone(),
     });
-    commands.insert_resource(ProceduralTextureArrayParams::from_layers(layers));
+    let (array_params, palette_storage) = ProceduralTextureArrayParams::from_layers(layers);
+    commands.insert_resource(array_params);
+    commands.insert_resource(palette_storage);
     commands.insert_resource(BlockTextureFaceMappings(data.face_mappings.clone()));
     commands.insert_resource(BlockTextureArray(texture));
     commands.insert_resource(ProceduralTextureInitialized);
@@ -269,18 +277,18 @@ struct ProceduralTextureGenerationMetrics {
 
 #[derive(Resource, Clone, ExtractResource, ShaderType)]
 struct ProceduralTextureLayerParams {
+    style: u32,
     seed: u32,
     octaves: u32,
     has_layer: u32,
-    _pad0: u32,
     noise_scale: f32,
     warp_strength: f32,
     layer_ratio: f32,
+    base_palette_offset: u32,
     base_palette_len: u32,
+    top_palette_offset: u32,
     top_palette_len: u32,
-    _pad1: UVec3,
-    base_palette: [Vec4; MAX_PALETTE_COLORS],
-    top_palette: [Vec4; MAX_PALETTE_COLORS],
+    _pad0: u32,
 }
 
 #[derive(Resource, Clone, ExtractResource, ShaderType)]
@@ -290,39 +298,54 @@ struct ProceduralTextureArrayParams {
     layers: [ProceduralTextureLayerParams; MAX_LAYERS],
 }
 
+#[derive(Resource, Clone, ExtractResource, ShaderType)]
+struct ProceduralTexturePaletteStorage {
+    color_count: encase::ArrayLength,
+    #[shader(size(runtime))]
+    colors: Vec<Vec4>,
+}
+
 impl ProceduralTextureArrayParams {
-    fn from_layers(layers_specs: &[ExpandedLayerSpec]) -> Self {
+    fn from_layers(layers_specs: &[ExpandedLayerSpec]) -> (Self, ProceduralTexturePaletteStorage) {
         let layer_count = u32::try_from(layers_specs.len()).expect("Too many layers");
+        let mut palette_colors = Vec::new();
 
         let mut layers = std::array::from_fn(|_| ProceduralTextureLayerParams {
+            style: TextureStyle::Minecraft.shader_style_tag(),
             seed: 0,
             octaves: 1,
             has_layer: 0,
-            _pad0: 0,
             noise_scale: 1.0,
             warp_strength: 0.0,
             layer_ratio: 0.0,
+            base_palette_offset: 0,
             base_palette_len: 1,
+            top_palette_offset: 0,
             top_palette_len: 0,
-            _pad1: UVec3::ZERO,
-            base_palette: [Vec4::ZERO; MAX_PALETTE_COLORS],
-            top_palette: [Vec4::ZERO; MAX_PALETTE_COLORS],
+            _pad0: 0,
         });
 
         for (i, spec) in layers_specs.iter().enumerate() {
-            layers[i] = spec.to_layer_params();
+            layers[i] = spec.to_layer_params(&mut palette_colors);
         }
 
-        Self {
-            layer_count,
-            _pad0: UVec3::ZERO,
-            layers,
-        }
+        (
+            Self {
+                layer_count,
+                _pad0: UVec3::ZERO,
+                layers,
+            },
+            ProceduralTexturePaletteStorage {
+                color_count: encase::ArrayLength,
+                colors: palette_colors,
+            },
+        )
     }
 }
 
 #[derive(Debug, Clone)]
 struct FaceLayerSpec {
+    style: TextureStyle,
     size: u32,
     seed: u32,
     octaves: u32,
@@ -330,14 +353,12 @@ struct FaceLayerSpec {
     warp_strength: f32,
     has_layer: bool,
     layer_ratio: f32,
-    base_palette: [[u8; 3]; MAX_PALETTE_COLORS],
-    base_palette_len: u32,
-    top_palette: [[u8; 3]; MAX_PALETTE_COLORS],
-    top_palette_len: u32,
+    base_palette: Vec<[u8; 3]>,
+    top_palette: Vec<[u8; 3]>,
 }
 
 impl FaceLayerSpec {
-    fn to_layer_params(&self) -> ProceduralTextureLayerParams {
+    fn to_layer_params(&self, palette_colors: &mut Vec<Vec4>) -> ProceduralTextureLayerParams {
         let requested_size = self.size.max(1);
         let ratio = CANONICAL_TEXTURE_SIZE as f32 / requested_size as f32;
         // 归一到 64×64 的“语义缩放”策略：
@@ -345,20 +366,27 @@ impl FaceLayerSpec {
         // - warp_strength：按反比例缩放，让 warp 的像素位移保持接近不变
         let noise_scale = (self.noise_scale * ratio).max(MIN_NOISE_SCALE);
         let warp_strength = (self.warp_strength / ratio).max(0.0);
+        let (base_palette_offset, base_palette_len) =
+            append_palette(palette_colors, &self.base_palette);
+        let (top_palette_offset, top_palette_len) = if self.has_layer {
+            append_palette(palette_colors, &self.top_palette)
+        } else {
+            (0, 0)
+        };
 
         ProceduralTextureLayerParams {
+            style: self.style.shader_style_tag(),
             seed: self.seed,
             octaves: self.octaves.max(1),
             has_layer: u32::from(self.has_layer),
-            _pad0: 0,
             noise_scale,
             warp_strength,
             layer_ratio: self.layer_ratio,
-            base_palette_len: self.base_palette_len.max(1),
-            top_palette_len: self.top_palette_len,
-            _pad1: UVec3::ZERO,
-            base_palette: self.base_palette.map(rgb_u8_to_linear_vec4),
-            top_palette: self.top_palette.map(rgb_u8_to_linear_vec4),
+            base_palette_offset,
+            base_palette_len,
+            top_palette_offset,
+            top_palette_len,
+            _pad0: 0,
         }
     }
 }
@@ -371,9 +399,16 @@ struct ExpandedLayerSpec {
 }
 
 impl ExpandedLayerSpec {
-    fn to_layer_params(&self) -> ProceduralTextureLayerParams {
-        self.layer.to_layer_params()
+    fn to_layer_params(&self, palette_colors: &mut Vec<Vec4>) -> ProceduralTextureLayerParams {
+        self.layer.to_layer_params(palette_colors)
     }
+}
+
+fn append_palette(palette_colors: &mut Vec<Vec4>, palette: &[[u8; 3]]) -> (u32, u32) {
+    let offset = u32::try_from(palette_colors.len()).expect("palette offset exceeds u32::MAX");
+    let len = u32::try_from(palette.len()).expect("palette length exceeds u32::MAX");
+    palette_colors.extend(palette.iter().copied().map(rgb_u8_to_linear_vec4));
+    (offset, len)
 }
 
 fn rgb_u8_to_linear_vec4(rgb: [u8; 3]) -> Vec4 {
@@ -495,6 +530,17 @@ enum TextureStyle {
     VectorToon,
 }
 
+impl TextureStyle {
+    fn shader_style_tag(self) -> u32 {
+        match self {
+            Self::Minecraft => 0,
+            Self::HdPixelArt => 1,
+            Self::HdRealistic => 2,
+            Self::VectorToon => 3,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct TextureSpecInput {
@@ -602,21 +648,14 @@ fn build_texture_data(
             )));
         }
 
-        if spec.style != TextureStyle::Minecraft {
-            log::warn!(
-                "texture `{}` style={:?} 暂未在 compute shader 中实现，当前按 minecraft 风格生成",
-                spec.name,
-                spec.style
-            );
-        }
-
         let mut face_specs = HashMap::new();
         for slot in ALL_FACE_SLOTS {
             let Some(face_input) = spec.faces.get(slot) else {
                 continue;
             };
-            let normalized =
-                normalize_face_spec(&spec.name, spec.size, spec.seed, slot, face_input)?;
+            let normalized = normalize_face_spec(
+                &spec.name, spec.size, spec.seed, spec.style, slot, face_input,
+            )?;
             face_specs.insert(slot, normalized);
         }
 
@@ -776,6 +815,7 @@ fn normalize_face_spec(
     block_name: &str,
     block_size: u32,
     block_seed: u32,
+    block_style: TextureStyle,
     face_slot: FaceSlot,
     input: &FaceSpecInput,
 ) -> Result<FaceLayerSpec, TextureDataLoadError> {
@@ -808,9 +848,9 @@ fn normalize_face_spec(
         block_name,
         face_slot.as_str()
     );
-    let (base_palette, base_palette_len) = encode_palette(&input.base.palette, &base_path)?;
+    let base_palette = encode_palette(&input.base.palette, &base_path)?;
 
-    let (top_palette, top_palette_len, layer_ratio) = if input.has_layer {
+    let (top_palette, layer_ratio) = if input.has_layer {
         let Some(layer_ratio) = input.layer_ratio else {
             return Err(TextureDataLoadError::new(format!(
                 "texture `{}` face `{}` has_layer=true but `layer_ratio` is missing",
@@ -838,8 +878,8 @@ fn normalize_face_spec(
             block_name,
             face_slot.as_str()
         );
-        let (top_palette, top_palette_len) = encode_palette(top_colors, &top_path)?;
-        (top_palette, top_palette_len, layer_ratio)
+        let top_palette = encode_palette(top_colors, &top_path)?;
+        (top_palette, layer_ratio)
     } else {
         if input.layer_ratio.is_some() || input.top_layer_palette.is_some() {
             log::warn!(
@@ -848,10 +888,11 @@ fn normalize_face_spec(
                 face_slot.as_str()
             );
         }
-        ([[0; 3]; MAX_PALETTE_COLORS], 0, 0.0)
+        (Vec::new(), 0.0)
     };
 
     Ok(FaceLayerSpec {
+        style: block_style,
         size: block_size.max(1),
         seed: block_seed ^ face_slot.seed_salt(),
         octaves: input.base.octaves.max(1),
@@ -860,35 +901,22 @@ fn normalize_face_spec(
         has_layer: input.has_layer,
         layer_ratio,
         base_palette,
-        base_palette_len,
         top_palette,
-        top_palette_len,
     })
 }
 
 fn encode_palette(
     palette: &[[u8; 3]],
     field_path: &str,
-) -> Result<([[u8; 3]; MAX_PALETTE_COLORS], u32), TextureDataLoadError> {
+) -> Result<Vec<[u8; 3]>, TextureDataLoadError> {
     if palette.len() < 2 {
         return Err(TextureDataLoadError::new(format!(
             "{field_path} must contain at least 2 colors"
         )));
     }
-    if palette.len() > MAX_PALETTE_COLORS {
-        return Err(TextureDataLoadError::new(format!(
-            "{field_path} contains {} colors, but current GPU layout supports at most {MAX_PALETTE_COLORS}",
-            palette.len()
-        )));
-    }
-
-    let mut out = [[0u8; 3]; MAX_PALETTE_COLORS];
-    for (i, rgb) in palette.iter().enumerate() {
-        out[i] = *rgb;
-    }
-    let len = u32::try_from(palette.len())
+    u32::try_from(palette.len())
         .map_err(|_| TextureDataLoadError::new(format!("{field_path} color count overflow")))?;
-    Ok((out, len))
+    Ok(palette.to_vec())
 }
 
 impl bevy::asset::AssetLoader for TextureDataLoader {
@@ -939,6 +967,9 @@ impl Material for ProceduralArrayMaterial {
 struct ProceduralTextureParamsBuffer(UniformBuffer<ProceduralTextureArrayParams>);
 
 #[derive(Resource)]
+struct ProceduralTexturePaletteBuffer(StorageBuffer<ProceduralTexturePaletteStorage>);
+
+#[derive(Resource)]
 struct ProceduralTextureDispatchThisFrame(bool);
 
 #[derive(Resource)]
@@ -962,6 +993,7 @@ fn init_procedural_texture_pipeline(
                     StorageTextureAccess::WriteOnly,
                 ),
                 uniform_buffer::<ProceduralTextureArrayParams>(false),
+                storage_buffer_read_only_sized(false, None),
             ),
         ),
     );
@@ -1001,6 +1033,27 @@ fn prepare_procedural_texture_params_buffer(
     uniform_buffer.set_label(Some("procedural_texture_params"));
     uniform_buffer.write_buffer(&render_device, &queue);
     commands.insert_resource(ProceduralTextureParamsBuffer(uniform_buffer));
+}
+
+fn prepare_procedural_texture_palette_buffer(
+    mut commands: Commands,
+    palettes: Option<Res<ProceduralTexturePaletteStorage>>,
+    render_device: Res<RenderDevice>,
+    queue: Res<RenderQueue>,
+    existing: Option<Res<ProceduralTexturePaletteBuffer>>,
+) {
+    if existing.is_some() {
+        return;
+    }
+
+    let Some(palettes) = palettes else {
+        return;
+    };
+
+    let mut storage_buffer = StorageBuffer::from(palettes.into_inner().clone());
+    storage_buffer.set_label(Some("procedural_texture_palettes"));
+    storage_buffer.write_buffer(&render_device, &queue);
+    commands.insert_resource(ProceduralTexturePaletteBuffer(storage_buffer));
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
@@ -1112,6 +1165,7 @@ impl render_graph::Node for ProceduralTextureNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipeline = world.resource::<ProceduralTexturePipeline>();
         let params_buffer = world.resource::<ProceduralTextureParamsBuffer>();
+        let palette_buffer = world.resource::<ProceduralTexturePaletteBuffer>();
         let render_device = world.resource::<RenderDevice>();
         let bind_group_layout = pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout);
 
@@ -1147,7 +1201,7 @@ impl render_graph::Node for ProceduralTextureNode {
             let bind_group = render_device.create_bind_group(
                 None,
                 &bind_group_layout,
-                &BindGroupEntries::sequential((&mip_view, &params_buffer.0)),
+                &BindGroupEntries::sequential((&mip_view, &params_buffer.0, &palette_buffer.0)),
             );
 
             pass.set_bind_group(0, &bind_group, &[]);
@@ -1167,6 +1221,12 @@ fn is_procedural_texture_dispatch_ready(world: &World) -> bool {
         return false;
     };
     if params_buffer.0.buffer().is_none() {
+        return false;
+    }
+    let Some(palette_buffer) = world.get_resource::<ProceduralTexturePaletteBuffer>() else {
+        return false;
+    };
+    if palette_buffer.0.buffer().is_none() {
         return false;
     }
 
@@ -1238,5 +1298,87 @@ fn format_bytes(bytes: u64) -> String {
         format!("{:.2} KiB", b / KIB)
     } else {
         format!("{bytes} B")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn layer_spec(
+        style: TextureStyle,
+        base_palette: Vec<[u8; 3]>,
+        top_palette: Vec<[u8; 3]>,
+        has_layer: bool,
+    ) -> ExpandedLayerSpec {
+        ExpandedLayerSpec {
+            _block_name: "test_block".to_string(),
+            _face_slot: FaceSlot::All,
+            layer: FaceLayerSpec {
+                style,
+                size: CANONICAL_TEXTURE_SIZE,
+                seed: 7,
+                octaves: 4,
+                noise_scale: 1.0,
+                warp_strength: 0.0,
+                has_layer,
+                layer_ratio: 0.5,
+                base_palette,
+                top_palette,
+            },
+        }
+    }
+
+    #[test]
+    fn encode_palette_accepts_more_than_four_colors() {
+        let palette = vec![
+            [10, 10, 10],
+            [30, 30, 30],
+            [50, 50, 50],
+            [70, 70, 70],
+            [90, 90, 90],
+            [110, 110, 110],
+        ];
+
+        let encoded = encode_palette(&palette, "test.palette").expect("palette should be valid");
+        assert_eq!(encoded.len(), 6);
+        assert_eq!(encoded, palette);
+    }
+
+    #[test]
+    fn from_layers_builds_palette_offsets_and_lengths() {
+        let layers = vec![
+            layer_spec(
+                TextureStyle::HdPixelArt,
+                vec![[10, 20, 30], [40, 50, 60], [70, 80, 90]],
+                vec![[90, 90, 90], [120, 120, 120]],
+                true,
+            ),
+            layer_spec(
+                TextureStyle::HdRealistic,
+                vec![[1, 1, 1], [2, 2, 2], [3, 3, 3], [4, 4, 4]],
+                Vec::new(),
+                false,
+            ),
+        ];
+
+        let (params, palettes) = ProceduralTextureArrayParams::from_layers(&layers);
+        assert_eq!(params.layer_count, 2);
+
+        let l0 = &params.layers[0];
+        assert_eq!(l0.style, TextureStyle::HdPixelArt.shader_style_tag());
+        assert_eq!(l0.base_palette_offset, 0);
+        assert_eq!(l0.base_palette_len, 3);
+        assert_eq!(l0.top_palette_offset, 3);
+        assert_eq!(l0.top_palette_len, 2);
+
+        let l1 = &params.layers[1];
+        assert_eq!(l1.style, TextureStyle::HdRealistic.shader_style_tag());
+        assert_eq!(l1.base_palette_offset, 5);
+        assert_eq!(l1.base_palette_len, 4);
+        assert_eq!(l1.top_palette_offset, 0);
+        assert_eq!(l1.top_palette_len, 0);
+
+        assert_eq!(palettes.colors.len(), 9);
     }
 }
