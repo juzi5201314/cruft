@@ -32,6 +32,7 @@
 - `top_layer_palette`（RGB[]，可选）：覆盖层调色板；`has_layer=true` 时必填。
 - `base`（object，必填）：基础材质参数
   - `palette`（RGB[]，必填）：调色板；RGB 为 `[0..255, 0..255, 0..255]`。
+    - 当前实现对 `RGB[]` 采用 **可变长度**（不再固定 4 色）；约束由显存/缓冲区大小决定。
   - `noise_scale`（float，>0，可选，默认 1.0）：噪声缩放。
   - `octaves`（int，>=1，可选，默认 4）：分形层数。
   - `warp_strength`（float，>=0，可选，默认 0.0）：定义域扭曲强度；0 关闭。
@@ -43,6 +44,7 @@
 ## 校验规则（建议）
 
 - `palette` 至少 2 个颜色（否则大部分风格会缺乏层次）。
+- `palette` / `top_layer_palette` 没有固定长度上限；但过长会增加显存占用与启动生成耗时。
 - `noise_scale` 过大可能导致周期过小（极端情况下会退化成常量噪声），建议限制在合理范围并在实现侧做防御性处理。
 - `has_layer=true` 时强制要求 `layer_ratio` 与 `top_layer_palette`。
 
@@ -151,11 +153,12 @@ Bevy v0.18 官方同类参考（强烈建议先对照骨架再改逻辑）：
 3) **RenderApp：pipeline + bind group**
 
 - `RenderStartup`：
-  - `BindGroupLayoutDescriptor`（`texture_storage_2d_array` + `uniform_buffer`）
+  - `BindGroupLayoutDescriptor`（`texture_storage_2d_array` + `uniform_buffer` + `storage_buffer`）
   - `pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor { .. })`
 - `RenderSystems::PrepareBindGroups`：
   - 从 `RenderAssets<GpuImage>` 取 `GpuImage.texture_view`
-  - 用 `UniformBuffer::from(params)` + `write_buffer()` 上传参数
+  - 用 `UniformBuffer::from(params)` + `write_buffer()` 上传每层参数（style/offset/len 等）
+  - 用 `StorageBuffer` 上传调色板颜色池（runtime-sized array）
   - `render_device.create_bind_group(...)` 写入 resource
 
 4) **只在启动时生成 1 次（RenderGraph Node）**

@@ -91,6 +91,7 @@
   - `top_layer_palette`：当 `has_layer=true` 时必填。
   - `base`（必填）：
     - `palette`（必填）：RGB 数组，建议从暗到亮。
+      - 支持可变长度 `RGB[]`（至少 2 色，无固定 4 色上限；受显存/缓冲限制）。
     - `noise_scale`（可选，默认 1.0）：必须 `>0`。
     - `octaves`（可选，默认 4）：必须 `>=1`。
     - `warp_strength`（可选，默认 0.0）：必须 `>=0`。
@@ -98,6 +99,7 @@
 ## 校验规则（必须满足）
 
 - `palette` 至少包含 2 个颜色。
+- `palette` 与 `top_layer_palette` 允许任意长度（建议控制在合理范围，避免显存占用过高）。
 - `has_layer=true` 时，必须同时提供 `layer_ratio` 与 `top_layer_palette`。
 - `layer_ratio` 必须在 `0..1`。
 - `noise_scale` 过大可能导致周期过小，避免给出极端值。
