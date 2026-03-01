@@ -46,7 +46,10 @@ struct DevHudRefreshTimer(pub Timer);
 
 impl Default for DevHudRefreshTimer {
     fn default() -> Self {
-        Self(Timer::new(Duration::from_secs_f32(0.2), TimerMode::Repeating))
+        Self(Timer::new(
+            Duration::from_secs_f32(0.2),
+            TimerMode::Repeating,
+        ))
     }
 }
 
@@ -56,7 +59,11 @@ struct DevHudRoot;
 #[derive(Component)]
 struct DevHudText;
 
-fn spawn_dev_hud(mut commands: Commands, theme: Res<cruft_ui::UiTheme>, enabled: Res<DevHudEnabled>) {
+fn spawn_dev_hud(
+    mut commands: Commands,
+    theme: Res<cruft_ui::UiTheme>,
+    enabled: Res<DevHudEnabled>,
+) {
     let display = if enabled.0 {
         Display::DEFAULT
     } else {
@@ -171,7 +178,9 @@ fn update_dev_hud_text(
         }
     }
 
-    let fps_s = fps.map(|v| format!("{v:.1}")).unwrap_or_else(|| "--".to_string());
+    let fps_s = fps
+        .map(|v| format!("{v:.1}"))
+        .unwrap_or_else(|| "--".to_string());
     let frame_s = frame_ms
         .map(|v| format!("{v:.2} ms"))
         .unwrap_or_else(|| "--".to_string());
