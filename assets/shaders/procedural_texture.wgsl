@@ -37,6 +37,7 @@ struct LayerParams {
 struct Params {
     layer_count: u32,
     _pad0: vec3<u32>,
+    _pad1: u32,
     layers: array<LayerParams, MAX_LAYERS>,
 };
 

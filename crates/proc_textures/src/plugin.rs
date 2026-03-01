@@ -233,6 +233,8 @@ fn setup_procedural_textures_from_data(
     });
     // 纹理内容完全由 RenderGraph compute pass 写入，不保留 CPU 像素副本。
     image.data = None;
+    // data=None 时不需要 resize copy；否则首次上传会触发“无 previous asset”告警。
+    image.copy_on_resize = false;
 
     commands.insert_resource(ProceduralTextureGenerationMetrics {
         started_at: Instant::now(),
@@ -295,6 +297,7 @@ struct ProceduralTextureLayerParams {
 struct ProceduralTextureArrayParams {
     layer_count: u32,
     _pad0: UVec3,
+    _pad1: u32,
     layers: [ProceduralTextureLayerParams; MAX_LAYERS],
 }
 
@@ -333,6 +336,7 @@ impl ProceduralTextureArrayParams {
             Self {
                 layer_count,
                 _pad0: UVec3::ZERO,
+                _pad1: 0,
                 layers,
             },
             ProceduralTexturePaletteStorage {
@@ -1380,5 +1384,10 @@ mod tests {
         assert_eq!(l1.top_palette_len, 0);
 
         assert_eq!(palettes.colors.len(), 9);
+    }
+
+    #[test]
+    fn array_params_uniform_layout_is_valid() {
+        ProceduralTextureArrayParams::assert_uniform_compat();
     }
 }

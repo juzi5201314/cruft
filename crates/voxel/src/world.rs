@@ -6,8 +6,7 @@ use bevy::render::extract_component::ExtractComponent;
 use bevy::render::extract_resource::ExtractResource;
 use bevy::tasks::{futures_lite::future, poll_once, AsyncComputeTaskPool, Task};
 
-use cruft_game_flow::{AppState, FlowRequest, InGameState};
-use cruft_proc_textures::TextureRegistry;
+use cruft_game_flow::{AppState, FlowRequest, GameStartKind, InGameState, PendingGameStart};
 
 use crate::blocks::BlockDefs;
 use crate::coords::ChunkKey;
@@ -55,10 +54,22 @@ impl Default for VoxelCenter {
     }
 }
 
-/// 当前帧用于渲染的 PackedQuad 全量快照（由主世界生成，RenderApp 提取）。
-#[derive(Resource, Debug, Default, Clone, ExtractResource)]
-pub struct VoxelQuadStore {
+#[derive(Debug, Clone)]
+pub struct VoxelQuadUploadOp {
+    pub offset: u32,
     pub data: Arc<[u64]>,
+}
+
+/// 主世界到 RenderApp 的增量上传契约。
+///
+/// - `full`：当 buffer 扩容或世界重置时发送全量快照
+/// - `updates`：常规情况下只发送局部更新片段
+#[derive(Resource, Debug, Default, Clone, ExtractResource)]
+pub struct VoxelQuadUploadQueue {
+    pub epoch: u64,
+    pub quad_capacity: u32,
+    pub full: Option<Arc<[u64]>>,
+    pub updates: Arc<[VoxelQuadUploadOp]>,
 }
 
 #[derive(Resource)]
@@ -81,7 +92,7 @@ impl Default for VoxelWorld {
 #[derive(Debug, Clone, Copy, Component, PartialEq, Eq)]
 pub struct ChunkGeneration(pub u32);
 
-#[derive(Debug, Clone, Copy, Component, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Component, PartialEq, Eq, ExtractComponent)]
 pub struct ChunkBounds {
     pub min: IVec3,
     pub max: IVec3,
@@ -114,6 +125,8 @@ struct VoxelQuadArena {
     data: Vec<u64>,
     free: Vec<FreeRange>,
     dirty: bool,
+    full_sync_required: bool,
+    pending_updates: Vec<VoxelQuadUploadOp>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -148,6 +161,9 @@ impl VoxelQuadArena {
 
         let offset = self.data.len() as u32;
         self.data.resize(self.data.len() + (len as usize), 0);
+        // 扩容会导致 GPU buffer 重建，下一帧需要全量同步。
+        self.full_sync_required = true;
+        self.dirty = true;
         offset
     }
 
@@ -166,6 +182,13 @@ impl VoxelQuadArena {
         let end = start + quads.len();
         self.data[start..end].copy_from_slice(quads);
         self.dirty = true;
+
+        if !self.full_sync_required {
+            self.pending_updates.push(VoxelQuadUploadOp {
+                offset,
+                data: Arc::from(quads.to_vec().into_boxed_slice()),
+            });
+        }
     }
 }
 
@@ -177,7 +200,7 @@ impl Plugin for VoxelPlugin {
             .init_resource::<VoxelCenter>()
             .init_resource::<VoxelPhase>()
             .init_resource::<VoxelWorld>()
-            .init_resource::<VoxelQuadStore>()
+            .init_resource::<VoxelQuadUploadQueue>()
             .init_resource::<VoxelLoadingTracker>()
             .init_resource::<VoxelMeshingTasks>()
             .init_resource::<VoxelQuadArena>()
@@ -192,7 +215,7 @@ impl Plugin for VoxelPlugin {
                     stream_chunks_system,
                     spawn_meshing_tasks_system,
                     poll_meshing_tasks_system,
-                    sync_quad_store_system,
+                    sync_upload_queue_system,
                 )
                     .chain()
                     .run_if(in_state(AppState::InGame)),
@@ -203,11 +226,12 @@ impl Plugin for VoxelPlugin {
 fn start_voxel_loading(
     mut phase: ResMut<VoxelPhase>,
     config: Res<VoxelConfig>,
-    texture_registry: Option<Res<TextureRegistry>>,
     mut tracker: ResMut<VoxelLoadingTracker>,
     mut world: ResMut<VoxelWorld>,
     mut arena: ResMut<VoxelQuadArena>,
-    mut store: ResMut<VoxelQuadStore>,
+    mut uploads: ResMut<VoxelQuadUploadQueue>,
+    pending: Option<Res<PendingGameStart>>,
+    mut commands: Commands,
 ) {
     *phase = VoxelPhase::Loading;
 
@@ -215,18 +239,24 @@ fn start_voxel_loading(
     world.storage.clear();
     arena.data.clear();
     arena.free.clear();
+    arena.pending_updates.clear();
+    arena.full_sync_required = true;
     arena.dirty = true;
-    store.data = Arc::from([]);
+    uploads.epoch = uploads.epoch.wrapping_add(1);
+    uploads.quad_capacity = 0;
+    uploads.full = Some(Arc::from([]));
+    uploads.updates = Arc::from([]);
     tracker.required.clear();
     tracker.completed.clear();
     tracker.finished = false;
 
-
-    if let Some(texture_registry) = texture_registry {
-        match BlockDefs::from_registry(&texture_registry) {
-            Ok(defs) => world.defs = defs,
-            Err(message) => log::error!("Failed to resolve BlockDefs from texture registry: {message}"),
+    // 用 PendingGameStart 的 generation + display_name 生成确定性 seed。
+    if let Some(pending) = pending {
+        if let GameStartKind::NewSave { display_name } = &pending.kind {
+            world.terrain.seed = fnv1a64(display_name.as_bytes())
+                ^ (pending.generation as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
         }
+        commands.remove_resource::<PendingGameStart>();
     }
     let _ = &config;
     // required/completed 由 Update 阶段按实时 VoxelCenter 维护（避免“中心点更新后 required 永远达不成”）。
@@ -242,7 +272,7 @@ fn cleanup_voxel_world(
     mut tracker: ResMut<VoxelLoadingTracker>,
     mut tasks: ResMut<VoxelMeshingTasks>,
     mut arena: ResMut<VoxelQuadArena>,
-    mut store: ResMut<VoxelQuadStore>,
+    mut uploads: ResMut<VoxelQuadUploadQueue>,
     world: Res<VoxelWorld>,
 ) {
     *phase = VoxelPhase::Loading;
@@ -252,8 +282,13 @@ fn cleanup_voxel_world(
     tasks.tasks.clear();
     arena.data.clear();
     arena.free.clear();
+    arena.pending_updates.clear();
+    arena.full_sync_required = true;
     arena.dirty = true;
-    store.data = Arc::from([]);
+    uploads.epoch = uploads.epoch.wrapping_add(1);
+    uploads.quad_capacity = 0;
+    uploads.full = Some(Arc::from([]));
+    uploads.updates = Arc::from([]);
     world.storage.clear();
 }
 
@@ -291,15 +326,10 @@ fn stream_chunks_system(
             world.storage.mark_dirty(n);
         }
 
-        let generation = world
-            .storage
-            .get_chunk(key)
-            .map(|c| c.generation())
-            .unwrap_or(0);
-
         commands.spawn((
             key,
-            ChunkGeneration(generation),
+            // 0 表示“未提交过 meshing 结果”，避免空 chunk 永久重复 remesh。
+            ChunkGeneration(0),
             ChunkBounds::from_key(key),
             ChunkDrawRange::default(),
         ));
@@ -313,7 +343,12 @@ fn stream_chunks_system(
             }
             if range.opaque_len > 0 {
                 arena.free(range.opaque_offset, range.opaque_len);
-                arena.dirty = true;
+            }
+            if range.cutout_len > 0 {
+                arena.free(range.cutout_offset, range.cutout_len);
+            }
+            if range.transparent_len > 0 {
+                arena.free(range.transparent_offset, range.transparent_len);
             }
             commands.entity(entity).despawn();
         }
@@ -326,7 +361,7 @@ fn spawn_meshing_tasks_system(
     world: Res<VoxelWorld>,
     mut tasks: ResMut<VoxelMeshingTasks>,
     phase: Res<VoxelPhase>,
-    chunks: Query<(&ChunkKey, &ChunkGeneration, &ChunkDrawRange)>,
+    chunks: Query<(&ChunkKey, &ChunkGeneration)>,
 ) {
     if tasks.tasks.len() >= config.max_inflight_meshing {
         return;
@@ -336,12 +371,12 @@ fn spawn_meshing_tasks_system(
 
     // 近处优先：按 dist2 排序挑选需要 remesh 的 chunk。
     let mut candidates: Vec<(i32, ChunkKey, u32)> = Vec::new();
-    for (key, last_gen, draw) in &chunks {
+    for (key, last_gen) in &chunks {
         let Some(chunk) = world.storage.get_chunk(*key) else {
             continue;
         };
         let gen = chunk.generation();
-        if gen == last_gen.0 && draw.opaque_len != 0 && !chunk.is_dirty() {
+        if gen == last_gen.0 && !chunk.is_dirty() {
             continue;
         }
         if tasks.tasks.contains_key(key) {
@@ -446,14 +481,35 @@ fn commit_meshing_result(
         if range.opaque_len > 0 {
             arena.free(range.opaque_offset, range.opaque_len);
         }
+        if range.cutout_len > 0 {
+            arena.free(range.cutout_offset, range.cutout_len);
+        }
+        if range.transparent_len > 0 {
+            arena.free(range.transparent_offset, range.transparent_len);
+        }
 
         let opaque_u64: Vec<u64> = result.opaque.iter().map(|q| q.0).collect();
-        let len = opaque_u64.len() as u32;
-        let offset = arena.alloc(len);
-        arena.write(offset, &opaque_u64);
+        let cutout_u64: Vec<u64> = result.cutout.iter().map(|q| q.0).collect();
+        let transparent_u64: Vec<u64> = result.transparent.iter().map(|q| q.0).collect();
 
-        range.opaque_offset = offset;
-        range.opaque_len = len;
+        let opaque_len = opaque_u64.len() as u32;
+        let cutout_len = cutout_u64.len() as u32;
+        let transparent_len = transparent_u64.len() as u32;
+
+        let opaque_offset = arena.alloc(opaque_len);
+        let cutout_offset = arena.alloc(cutout_len);
+        let transparent_offset = arena.alloc(transparent_len);
+
+        arena.write(opaque_offset, &opaque_u64);
+        arena.write(cutout_offset, &cutout_u64);
+        arena.write(transparent_offset, &transparent_u64);
+
+        range.opaque_offset = opaque_offset;
+        range.opaque_len = opaque_len;
+        range.cutout_offset = cutout_offset;
+        range.cutout_len = cutout_len;
+        range.transparent_offset = transparent_offset;
+        range.transparent_len = transparent_len;
         *gen = ChunkGeneration(result.generation);
 
         commands.entity(entity).insert(*range);
@@ -472,12 +528,29 @@ fn commit_meshing_result(
     }
 }
 
-fn sync_quad_store_system(mut arena: ResMut<VoxelQuadArena>, mut store: ResMut<VoxelQuadStore>) {
+fn sync_upload_queue_system(
+    mut arena: ResMut<VoxelQuadArena>,
+    mut uploads: ResMut<VoxelQuadUploadQueue>,
+) {
     if !arena.dirty {
         return;
     }
+
     arena.dirty = false;
-    store.data = Arc::from(arena.data.clone());
+    uploads.epoch = uploads.epoch.wrapping_add(1);
+    uploads.quad_capacity = arena.data.len() as u32;
+
+    if arena.full_sync_required {
+        uploads.full = Some(Arc::from(arena.data.clone().into_boxed_slice()));
+        uploads.updates = Arc::from([]);
+        arena.full_sync_required = false;
+        arena.pending_updates.clear();
+        return;
+    }
+
+    let updates = std::mem::take(&mut arena.pending_updates);
+    uploads.full = None;
+    uploads.updates = Arc::from(updates.into_boxed_slice());
 }
 
 fn update_loading_tracker_system(
@@ -569,4 +642,13 @@ fn ensure_generated_chunk(storage: &Storage, terrain: &Terrain, key: ChunkKey) {
     chunk.fill_terrain_heightmap(base.y, &heights);
     // 生成只做一次；保持 generation，用于后续 meshing。
     chunk.clear_dirty();
+}
+
+fn fnv1a64(bytes: &[u8]) -> u64 {
+    let mut h = 0xcbf29ce484222325u64;
+    for &b in bytes {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h
 }

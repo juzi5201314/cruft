@@ -1,9 +1,6 @@
 #import bevy_render::view::View
 
-struct ChunkUniform {
-    origin: vec3<f32>,
-    quad_base: u32,
-}
+const CHUNK_META_STRIDE: u32 = 12u;
 
 struct Quad {
     low: u32,
@@ -12,7 +9,9 @@ struct Quad {
 
 @group(0) @binding(0) var<uniform> view: View;
 
-@group(1) @binding(0) var<uniform> chunk: ChunkUniform;
+// chunk_meta 固定 stride=12*u32：
+// [origin.xyz(i32), opaque_offset(u32), min.xyz(i32), opaque_len(u32), max.xyz(i32), reserved]
+@group(1) @binding(0) var<storage, read> chunk_meta: array<u32>;
 @group(1) @binding(1) var<storage, read> quads: array<u32>;
 @group(1) @binding(2) var<storage, read> face_mappings: array<u32>;
 @group(1) @binding(3) var array_texture: texture_2d_array<f32>;
@@ -22,6 +21,24 @@ struct VsOut {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) uv: vec2<f32>,
     @location(1) @interpolate(flat) layer: i32,
+}
+
+fn chunk_meta_base(chunk_index: u32) -> u32 {
+    return chunk_index * CHUNK_META_STRIDE;
+}
+
+fn chunk_origin(chunk_index: u32) -> vec3<f32> {
+    let base = chunk_meta_base(chunk_index);
+    return vec3<f32>(
+        f32(bitcast<i32>(chunk_meta[base + 0u])),
+        f32(bitcast<i32>(chunk_meta[base + 1u])),
+        f32(bitcast<i32>(chunk_meta[base + 2u])),
+    );
+}
+
+fn chunk_quad_base(chunk_index: u32) -> u32 {
+    let base = chunk_meta_base(chunk_index);
+    return chunk_meta[base + 3u];
 }
 
 fn decode_u32(pair_index: u32) -> Quad {
@@ -71,8 +88,15 @@ fn quad_corner(vid: u32) -> vec2<f32> {
 }
 
 @vertex
-fn vertex(@builtin(vertex_index) vid: u32, @builtin(instance_index) instance_index: u32) -> VsOut {
-    let q = decode_u32(chunk.quad_base + instance_index);
+fn vertex(
+    @builtin(vertex_index) global_vertex_index: u32,
+    @builtin(instance_index) instance_index: u32,
+) -> VsOut {
+    // draw 命令把 first_vertex 设为 chunk_index*6，因此可反推 chunk 索引。
+    let chunk_index = global_vertex_index / 6u;
+    let vid = global_vertex_index % 6u;
+
+    let q = decode_u32(chunk_quad_base(chunk_index) + instance_index);
 
     let x = f32(q.low & 0x3Fu);
     let y = f32((q.low >> 6u) & 0x3Fu);
@@ -80,24 +104,22 @@ fn vertex(@builtin(vertex_index) vid: u32, @builtin(instance_index) instance_ind
     let w = f32(((q.low >> 18u) & 0x1Fu) + 1u);
     let h = f32(((q.low >> 23u) & 0x1Fu) + 1u);
     let face = (q.low >> 28u) & 0x7u;
-
     let material_key = (q.high & 0xFFu);
 
-    var normal = vec3<f32>(0.0, 1.0, 0.0);
     var u_axis = vec3<f32>(1.0, 0.0, 0.0);
     var v_axis = vec3<f32>(0.0, 0.0, 1.0);
 
     // w/h 轴向：按 `docs/voxel/meshing.md` 写死约定。
     switch (face) {
         // +X / -X：w 沿 +Z，h 沿 +Y
-        case 0u: { normal = vec3<f32>( 1.0, 0.0, 0.0); u_axis = vec3<f32>(0.0, 0.0, 1.0); v_axis = vec3<f32>(0.0, 1.0, 0.0); }
-        case 1u: { normal = vec3<f32>(-1.0, 0.0, 0.0); u_axis = vec3<f32>(0.0, 0.0, 1.0); v_axis = vec3<f32>(0.0, 1.0, 0.0); }
+        case 0u: { u_axis = vec3<f32>(0.0, 0.0, 1.0); v_axis = vec3<f32>(0.0, 1.0, 0.0); }
+        case 1u: { u_axis = vec3<f32>(0.0, 0.0, 1.0); v_axis = vec3<f32>(0.0, 1.0, 0.0); }
         // +Y / -Y：w 沿 +X，h 沿 +Z
-        case 2u: { normal = vec3<f32>(0.0,  1.0, 0.0); u_axis = vec3<f32>(1.0, 0.0, 0.0); v_axis = vec3<f32>(0.0, 0.0, 1.0); }
-        case 3u: { normal = vec3<f32>(0.0, -1.0, 0.0); u_axis = vec3<f32>(1.0, 0.0, 0.0); v_axis = vec3<f32>(0.0, 0.0, 1.0); }
+        case 2u: { u_axis = vec3<f32>(1.0, 0.0, 0.0); v_axis = vec3<f32>(0.0, 0.0, 1.0); }
+        case 3u: { u_axis = vec3<f32>(1.0, 0.0, 0.0); v_axis = vec3<f32>(0.0, 0.0, 1.0); }
         // +Z / -Z：w 沿 +X，h 沿 +Y
-        case 4u: { normal = vec3<f32>(0.0, 0.0,  1.0); u_axis = vec3<f32>(1.0, 0.0, 0.0); v_axis = vec3<f32>(0.0, 1.0, 0.0); }
-        default: { normal = vec3<f32>(0.0, 0.0, -1.0); u_axis = vec3<f32>(1.0, 0.0, 0.0); v_axis = vec3<f32>(0.0, 1.0, 0.0); }
+        case 4u: { u_axis = vec3<f32>(1.0, 0.0, 0.0); v_axis = vec3<f32>(0.0, 1.0, 0.0); }
+        default: { u_axis = vec3<f32>(1.0, 0.0, 0.0); v_axis = vec3<f32>(0.0, 1.0, 0.0); }
     }
 
     // 约定：primitive front face 为 CCW。
@@ -108,8 +130,9 @@ fn vertex(@builtin(vertex_index) vid: u32, @builtin(instance_index) instance_ind
     if (invert_winding) {
         corner.x = 1.0 - corner.x;
     }
+
     let local = vec3<f32>(x, y, z) + u_axis * (corner.x * w) + v_axis * (corner.y * h);
-    let world = chunk.origin + local;
+    let world = chunk_origin(chunk_index) + local;
     let clip = view.clip_from_world * vec4<f32>(world, 1.0);
 
     var out: VsOut;

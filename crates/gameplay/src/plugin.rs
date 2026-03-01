@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use bevy::render::experimental::occlusion_culling::OcclusionCulling;
 use bevy::state::state_scoped::DespawnOnExit;
 
 use cruft_game_flow::{AppState, FlowRequest, InGameState};
@@ -109,20 +110,28 @@ fn spawn_world_root(
                 .with_children(|player| {
                     player.spawn((
                         Camera3d::default(),
+                        OcclusionCulling,
                         FpsCamera,
                         Transform::from_translation(Vec3::new(0.0, eye_height, 0.0))
                             .with_rotation(Quat::from_rotation_x(pitch)),
                     ));
                 });
             parent.spawn((
-                PointLight {
+                DirectionalLight {
                     shadows_enabled: true,
+                    illuminance: 22_000.0,
                     ..default()
                 },
-                // 光源也跟随出生高度放到地表上方，避免地形遮挡导致画面过暗。
-                Transform::from_xyz(spawn_x + 4.0, player_feet_y + 12.0, spawn_z + 4.0),
+                // 方向光替代点光阴影，避免每帧 6 面阴影渲染带来的高开销。
+                Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, -0.85, -0.95)),
             ));
         });
+
+    commands.insert_resource(GlobalAmbientLight {
+        color: Color::srgb(0.67, 0.70, 0.76),
+        brightness: 72.0,
+        ..default()
+    });
 }
 
 fn sync_voxel_center_from_player(

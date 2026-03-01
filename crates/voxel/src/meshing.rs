@@ -1,4 +1,4 @@
-use crate::blocks::{BlockDefs, BlockStateId, RenderLayer, AIR};
+use crate::blocks::{BlockDefs, RenderLayer, AIR};
 use crate::coords::ChunkKey;
 use crate::coords::PADDED_CHUNK_SIZE;
 use crate::storage::PaddedChunk;
@@ -21,8 +21,8 @@ pub struct PackedQuad(pub u64);
 impl PackedQuad {
     /// `docs/voxel/meshing.md` 的 PackedQuad(u64) 写死布局：
     /// - low32: x(6) | y(6) | z(6) | w_minus1(5) | h_minus1(5) | face(3) | reserved1(1)
-    /// - high32: material_id(16) | flags(8) | reserved(8)
-    pub fn new(x: u8, y: u8, z: u8, w: u8, h: u8, face: Face, material_id: u16, flags: u8) -> Self {
+    /// - high32: material_key(8) | flags(8) | reserved(16)
+    pub fn new(x: u8, y: u8, z: u8, w: u8, h: u8, face: Face, material_key: u8, flags: u8) -> Self {
         debug_assert!(x <= 32);
         debug_assert!(y <= 32);
         debug_assert!(z <= 32);
@@ -35,7 +35,7 @@ impl PackedQuad {
             | (((w as u32) - 1) << 18)
             | (((h as u32) - 1) << 23)
             | ((face as u32) << 28);
-        let high32 = (material_id as u32) | ((flags as u32) << 16);
+        let high32 = (material_key as u32) | ((flags as u32) << 8);
         Self((low32 as u64) | ((high32 as u64) << 32))
     }
 
@@ -48,8 +48,8 @@ impl PackedQuad {
         let w = (((low >> 18) & 0x1F) as u8) + 1;
         let h = (((low >> 23) & 0x1F) as u8) + 1;
         let face = ((low >> 28) & 0x07) as u8;
-        let material_id = (high & 0xFFFF) as u16;
-        let flags = ((high >> 16) & 0xFF) as u8;
+        let material_key = (high & 0xFF) as u8;
+        let flags = ((high >> 8) & 0xFF) as u8;
         DecodedQuad {
             x,
             y,
@@ -57,7 +57,7 @@ impl PackedQuad {
             w,
             h,
             face,
-            material_id,
+            material_key,
             flags,
         }
     }
@@ -71,7 +71,7 @@ pub struct DecodedQuad {
     pub w: u8,
     pub h: u8,
     pub face: u8,
-    pub material_id: u16,
+    pub material_key: u8,
     pub flags: u8,
 }
 
@@ -108,207 +108,305 @@ pub fn mesh(input: &MeshingInput, defs: &BlockDefs) -> MeshingOutput {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct FaceKey {
+    render_layer: RenderLayer,
+    material_key: u8,
+}
+
+const CHUNK_AXIS: usize = CHUNK_SIZE as usize;
+const CHUNK_AREA: usize = CHUNK_AXIS * CHUNK_AXIS;
+
 pub fn mesh_padded_chunk(
     padded: &PaddedChunk,
     defs: &BlockDefs,
 ) -> (Vec<PackedQuad>, Vec<PackedQuad>, Vec<PackedQuad>) {
-    // 当前实现：先满足 face 编码/起点语义，暂不实现 bitmask + greedy 合并。
     let mut opaque = Vec::new();
     let mut cutout = Vec::new();
     let mut transparent = Vec::new();
 
+    let mut grid = vec![None; CHUNK_AREA];
+
+    // +X / -X：w 沿 +Z，h 沿 +Y（u=z, v=y）
+    for lx in 0..(CHUNK_SIZE as u8) {
+        fill_x_plane_visibility(padded, defs, lx, true, &mut grid);
+        greedy_merge_grid(&mut grid, |u, v, w, h, key| {
+            push_quad_by_layer(
+                &mut opaque,
+                &mut cutout,
+                &mut transparent,
+                key,
+                PackedQuad::new(
+                    lx + 1,
+                    v,
+                    u,
+                    w,
+                    h,
+                    Face::PosX,
+                    key.material_key,
+                    key.render_layer as u8,
+                ),
+            );
+        });
+
+        fill_x_plane_visibility(padded, defs, lx, false, &mut grid);
+        greedy_merge_grid(&mut grid, |u, v, w, h, key| {
+            push_quad_by_layer(
+                &mut opaque,
+                &mut cutout,
+                &mut transparent,
+                key,
+                PackedQuad::new(
+                    lx,
+                    v,
+                    u,
+                    w,
+                    h,
+                    Face::NegX,
+                    key.material_key,
+                    key.render_layer as u8,
+                ),
+            );
+        });
+    }
+
+    // +Y / -Y：w 沿 +X，h 沿 +Z（u=x, v=z）
     for ly in 0..(CHUNK_SIZE as u8) {
-        for lz in 0..(CHUNK_SIZE as u8) {
-            for lx in 0..(CHUNK_SIZE as u8) {
-                let px = lx + 1;
-                let py = ly + 1;
-                let pz = lz + 1;
-                debug_assert!((px as usize) < PADDED_CHUNK_SIZE);
-                debug_assert!((py as usize) < PADDED_CHUNK_SIZE);
-                debug_assert!((pz as usize) < PADDED_CHUNK_SIZE);
+        fill_y_plane_visibility(padded, defs, ly, true, &mut grid);
+        greedy_merge_grid(&mut grid, |u, v, w, h, key| {
+            push_quad_by_layer(
+                &mut opaque,
+                &mut cutout,
+                &mut transparent,
+                key,
+                PackedQuad::new(
+                    u,
+                    ly + 1,
+                    v,
+                    w,
+                    h,
+                    Face::PosY,
+                    key.material_key,
+                    key.render_layer as u8,
+                ),
+            );
+        });
 
-                let a = padded.get(px, py, pz);
-                if a == AIR {
-                    continue;
-                }
-                let a_def = defs.def(a);
+        fill_y_plane_visibility(padded, defs, ly, false, &mut grid);
+        greedy_merge_grid(&mut grid, |u, v, w, h, key| {
+            push_quad_by_layer(
+                &mut opaque,
+                &mut cutout,
+                &mut transparent,
+                key,
+                PackedQuad::new(
+                    u,
+                    ly,
+                    v,
+                    w,
+                    h,
+                    Face::NegY,
+                    key.material_key,
+                    key.render_layer as u8,
+                ),
+            );
+        });
+    }
 
-                emit_faces_for_voxel(
-                    a,
-                    a_def,
-                    (lx, ly, lz),
-                    (px, py, pz),
-                    padded,
-                    defs,
-                    &mut opaque,
-                    &mut cutout,
-                    &mut transparent,
-                );
-            }
-        }
+    // +Z / -Z：w 沿 +X，h 沿 +Y（u=x, v=y）
+    for lz in 0..(CHUNK_SIZE as u8) {
+        fill_z_plane_visibility(padded, defs, lz, true, &mut grid);
+        greedy_merge_grid(&mut grid, |u, v, w, h, key| {
+            push_quad_by_layer(
+                &mut opaque,
+                &mut cutout,
+                &mut transparent,
+                key,
+                PackedQuad::new(
+                    u,
+                    v,
+                    lz + 1,
+                    w,
+                    h,
+                    Face::PosZ,
+                    key.material_key,
+                    key.render_layer as u8,
+                ),
+            );
+        });
+
+        fill_z_plane_visibility(padded, defs, lz, false, &mut grid);
+        greedy_merge_grid(&mut grid, |u, v, w, h, key| {
+            push_quad_by_layer(
+                &mut opaque,
+                &mut cutout,
+                &mut transparent,
+                key,
+                PackedQuad::new(
+                    u,
+                    v,
+                    lz,
+                    w,
+                    h,
+                    Face::NegZ,
+                    key.material_key,
+                    key.render_layer as u8,
+                ),
+            );
+        });
     }
 
     (opaque, cutout, transparent)
 }
 
-fn emit_faces_for_voxel(
-    _a: BlockStateId,
-    a_def: crate::blocks::BlockDef,
-    local: (u8, u8, u8),
-    padded_pos: (u8, u8, u8),
-    padded: &PaddedChunk,
-    defs: &BlockDefs,
-    opaque: &mut Vec<PackedQuad>,
-    cutout: &mut Vec<PackedQuad>,
-    transparent: &mut Vec<PackedQuad>,
-) {
-    let (lx, ly, lz) = local;
-    let (px, py, pz) = padded_pos;
-
-    let layer_flags = a_def.render_layer as u8;
-
-    // +X
-    try_emit_face(
-        padded,
-        defs,
-        (px + 1, py, pz),
-        a_def,
-        PackedQuad::new(
-            lx + 1,
-            ly,
-            lz,
-            1,
-            1,
-            Face::PosX,
-            a_def.material_binding.material_key_for(Face::PosX),
-            layer_flags,
-        ),
-        opaque,
-        cutout,
-        transparent,
-    );
-    // -X
-    try_emit_face(
-        padded,
-        defs,
-        (px - 1, py, pz),
-        a_def,
-        PackedQuad::new(
-            lx,
-            ly,
-            lz,
-            1,
-            1,
-            Face::NegX,
-            a_def.material_binding.material_key_for(Face::NegX),
-            layer_flags,
-        ),
-        opaque,
-        cutout,
-        transparent,
-    );
-    // +Y
-    try_emit_face(
-        padded,
-        defs,
-        (px, py + 1, pz),
-        a_def,
-        PackedQuad::new(
-            lx,
-            ly + 1,
-            lz,
-            1,
-            1,
-            Face::PosY,
-            a_def.material_binding.material_key_for(Face::PosY),
-            layer_flags,
-        ),
-        opaque,
-        cutout,
-        transparent,
-    );
-    // -Y
-    try_emit_face(
-        padded,
-        defs,
-        (px, py - 1, pz),
-        a_def,
-        PackedQuad::new(
-            lx,
-            ly,
-            lz,
-            1,
-            1,
-            Face::NegY,
-            a_def.material_binding.material_key_for(Face::NegY),
-            layer_flags,
-        ),
-        opaque,
-        cutout,
-        transparent,
-    );
-    // +Z
-    try_emit_face(
-        padded,
-        defs,
-        (px, py, pz + 1),
-        a_def,
-        PackedQuad::new(
-            lx,
-            ly,
-            lz + 1,
-            1,
-            1,
-            Face::PosZ,
-            a_def.material_binding.material_key_for(Face::PosZ),
-            layer_flags,
-        ),
-        opaque,
-        cutout,
-        transparent,
-    );
-    // -Z
-    try_emit_face(
-        padded,
-        defs,
-        (px, py, pz - 1),
-        a_def,
-        PackedQuad::new(
-            lx,
-            ly,
-            lz,
-            1,
-            1,
-            Face::NegZ,
-            a_def.material_binding.material_key_for(Face::NegZ),
-            layer_flags,
-        ),
-        opaque,
-        cutout,
-        transparent,
-    );
+#[inline]
+fn grid_index(u: usize, v: usize) -> usize {
+    u + v * CHUNK_AXIS
 }
 
-fn try_emit_face(
+#[inline]
+fn face_key_for(
     padded: &PaddedChunk,
     defs: &BlockDefs,
-    neighbor_padded: (u8, u8, u8),
-    a_def: crate::blocks::BlockDef,
-    quad: PackedQuad,
+    lx: u8,
+    ly: u8,
+    lz: u8,
+    dx: i8,
+    dy: i8,
+    dz: i8,
+) -> Option<FaceKey> {
+    let px = lx + 1;
+    let py = ly + 1;
+    let pz = lz + 1;
+
+    debug_assert!((px as usize) < PADDED_CHUNK_SIZE);
+    debug_assert!((py as usize) < PADDED_CHUNK_SIZE);
+    debug_assert!((pz as usize) < PADDED_CHUNK_SIZE);
+
+    let a = padded.get(px, py, pz);
+    if a == AIR {
+        return None;
+    }
+    let a_def = defs.def(a);
+
+    let nx = (px as i16 + dx as i16) as u8;
+    let ny = (py as i16 + dy as i16) as u8;
+    let nz = (pz as i16 + dz as i16) as u8;
+    let b = padded.get(nx, ny, nz);
+    let b_def = defs.def(b);
+    if b_def.is_occluder {
+        return None;
+    }
+
+    Some(FaceKey {
+        render_layer: a_def.render_layer,
+        material_key: a_def.material_key,
+    })
+}
+
+fn fill_x_plane_visibility(
+    padded: &PaddedChunk,
+    defs: &BlockDefs,
+    lx: u8,
+    positive: bool,
+    grid: &mut [Option<FaceKey>],
+) {
+    debug_assert_eq!(grid.len(), CHUNK_AREA);
+    let dx = if positive { 1i8 } else { -1i8 };
+
+    for ly in 0..(CHUNK_SIZE as u8) {
+        for lz in 0..(CHUNK_SIZE as u8) {
+            let key = face_key_for(padded, defs, lx, ly, lz, dx, 0, 0);
+            grid[grid_index(lz as usize, ly as usize)] = key;
+        }
+    }
+}
+
+fn fill_y_plane_visibility(
+    padded: &PaddedChunk,
+    defs: &BlockDefs,
+    ly: u8,
+    positive: bool,
+    grid: &mut [Option<FaceKey>],
+) {
+    debug_assert_eq!(grid.len(), CHUNK_AREA);
+    let dy = if positive { 1i8 } else { -1i8 };
+
+    for lz in 0..(CHUNK_SIZE as u8) {
+        for lx in 0..(CHUNK_SIZE as u8) {
+            let key = face_key_for(padded, defs, lx, ly, lz, 0, dy, 0);
+            grid[grid_index(lx as usize, lz as usize)] = key;
+        }
+    }
+}
+
+fn fill_z_plane_visibility(
+    padded: &PaddedChunk,
+    defs: &BlockDefs,
+    lz: u8,
+    positive: bool,
+    grid: &mut [Option<FaceKey>],
+) {
+    debug_assert_eq!(grid.len(), CHUNK_AREA);
+    let dz = if positive { 1i8 } else { -1i8 };
+
+    for ly in 0..(CHUNK_SIZE as u8) {
+        for lx in 0..(CHUNK_SIZE as u8) {
+            let key = face_key_for(padded, defs, lx, ly, lz, 0, 0, dz);
+            grid[grid_index(lx as usize, ly as usize)] = key;
+        }
+    }
+}
+
+fn greedy_merge_grid(grid: &mut [Option<FaceKey>], mut emit: impl FnMut(u8, u8, u8, u8, FaceKey)) {
+    debug_assert_eq!(grid.len(), CHUNK_AREA);
+
+    for v in 0..CHUNK_AXIS {
+        let mut u = 0usize;
+        while u < CHUNK_AXIS {
+            let idx = grid_index(u, v);
+            let Some(key) = grid[idx] else {
+                u += 1;
+                continue;
+            };
+
+            let mut width = 1usize;
+            while u + width < CHUNK_AXIS && grid[grid_index(u + width, v)] == Some(key) {
+                width += 1;
+            }
+
+            let mut height = 1usize;
+            'grow_h: while v + height < CHUNK_AXIS {
+                for du in 0..width {
+                    if grid[grid_index(u + du, v + height)] != Some(key) {
+                        break 'grow_h;
+                    }
+                }
+                height += 1;
+            }
+
+            for dv in 0..height {
+                for du in 0..width {
+                    grid[grid_index(u + du, v + dv)] = None;
+                }
+            }
+
+            emit(u as u8, v as u8, width as u8, height as u8, key);
+
+            u += width;
+        }
+    }
+}
+
+#[inline]
+fn push_quad_by_layer(
     opaque: &mut Vec<PackedQuad>,
     cutout: &mut Vec<PackedQuad>,
     transparent: &mut Vec<PackedQuad>,
+    key: FaceKey,
+    quad: PackedQuad,
 ) {
-    let (nx, ny, nz) = neighbor_padded;
-    let b = padded.get(nx, ny, nz);
-    let b_def = defs.def(b);
-
-    // docs/voxel/meshing.md：若邻居是 occluder，则不生成面。
-    if b_def.is_occluder {
-        return;
-    }
-
-    match a_def.render_layer {
+    match key.render_layer {
         RenderLayer::Opaque => opaque.push(quad),
         RenderLayer::Cutout => cutout.push(quad),
         RenderLayer::Transparent => transparent.push(quad),
@@ -340,7 +438,7 @@ mod tests {
         got.sort_by_key(|q| (q.face, q.x, q.y, q.z));
 
         let expect = [
-            // face, x, y, z (w/h/material/flags 在下方验证)
+            // face, x, y, z
             (Face::PosX as u8, 1u8, 0u8, 0u8),
             (Face::NegX as u8, 0u8, 0u8, 0u8),
             (Face::PosY as u8, 0u8, 1u8, 0u8),
@@ -358,7 +456,7 @@ mod tests {
                 w: 1,
                 h: 1,
                 face,
-                material_id: defs.def(STONE).material_binding.material_key_for(Face::PosX),
+                material_key: defs.def(STONE).material_key,
                 flags: RenderLayer::Opaque as u8,
             })
             .collect::<Vec<_>>();
@@ -368,13 +466,38 @@ mod tests {
             assert_eq!(a, b);
         }
     }
+
     #[test]
-    fn packed_quad_roundtrip_with_u16_material() {
-        let quad = PackedQuad::new(1, 2, 3, 4, 5, Face::PosZ, 513, 7);
+    fn packed_quad_roundtrip_with_u8_material_key() {
+        let quad = PackedQuad::new(1, 2, 3, 4, 5, Face::PosZ, 13, 7);
         let decoded = quad.decode();
-        assert_eq!(decoded.material_id, 513);
+        assert_eq!(decoded.material_key, 13);
         assert_eq!(decoded.flags, 7);
         assert_eq!(decoded.face, Face::PosZ as u8);
     }
 
+    #[test]
+    fn solid_chunk_collapses_to_6_quads() {
+        let storage = Storage::default();
+        let defs = BlockDefs::default();
+
+        let key = ChunkKey::ZERO;
+        let chunk = storage.get_or_create_chunk(key);
+        chunk.fill_direct(|_, _, _| STONE);
+        chunk.clear_dirty();
+
+        let (padded, _) = storage.padded_snapshot(key);
+        let (opaque, cutout, transparent) = mesh_padded_chunk(&padded, &defs);
+
+        assert!(cutout.is_empty());
+        assert!(transparent.is_empty());
+        assert_eq!(opaque.len(), 6);
+
+        for decoded in opaque.into_iter().map(|q| q.decode()) {
+            assert_eq!(decoded.material_key, defs.def(STONE).material_key);
+            assert_eq!(decoded.flags, RenderLayer::Opaque as u8);
+            assert_eq!(decoded.w, 32);
+            assert_eq!(decoded.h, 32);
+        }
+    }
 }
