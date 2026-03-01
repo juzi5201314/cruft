@@ -3,21 +3,21 @@
   "textures": [
     {
       "name": "minecraft_grass",
-      "size": 16,
+      "size": 64,
       "seed": 9001,
       "octaves": 3,
-      "noise_scale": 2.8,
-      "warp_strength": 0.1,
+      "noise_scale": 11.2,
+      "warp_strength": 0.025,
       "palette": [[48, 94, 36], [62, 116, 44], [85, 140, 58], [120, 170, 78]],
       "style": "minecraft_quantized"
     },
     {
       "name": "minecraft_dirt",
-      "size": 32,
+      "size": 64,
       "seed": 1337,
       "octaves": 4,
-      "noise_scale": 2.0,
-      "warp_strength": 0.15,
+      "noise_scale": 4.0,
+      "warp_strength": 0.075,
       "palette": [[71, 47, 28], [91, 62, 38], [110, 80, 50], [140, 110, 70]],
       "style": "minecraft_quantized"
     },
@@ -33,11 +33,11 @@
     },
     {
       "name": "minecraft_stone",
-      "size": 128,
+      "size": 64,
       "seed": 42,
       "octaves": 4,
-      "noise_scale": 1.2,
-      "warp_strength": 0.05,
+      "noise_scale": 1.0,
+      "warp_strength": 0.10,
       "palette": [[80, 80, 85], [105, 105, 112], [130, 130, 140], [160, 160, 170]],
       "style": "minecraft_quantized"
     }
