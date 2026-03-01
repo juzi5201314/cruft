@@ -55,6 +55,10 @@ impl UiMaterial for GeistGridMaterial {
     }
 }
 
+#[expect(
+    clippy::type_complexity,
+    reason = "Bevy Query 的过滤组合是系统签名的一部分，提取别名会降低就地可读性"
+)]
 fn emit_ui_click(
     mut commands: Commands,
     query: Query<(Entity, &Interaction), (With<UiButton>, Changed<Interaction>)>,
@@ -66,6 +70,10 @@ fn emit_ui_click(
     }
 }
 
+#[expect(
+    clippy::type_complexity,
+    reason = "UI 皮肤系统需一次拿到组件组，拆分查询会增加 borrow 与同步复杂度"
+)]
 fn apply_geist_button_skin(
     mut commands: Commands,
     theme: Res<UiTheme>,
@@ -151,6 +159,10 @@ fn apply_geist_button_skin(
     }
 }
 
+#[expect(
+    clippy::type_complexity,
+    reason = "卡片皮肤初始化需要同一查询里读取多种可选组件"
+)]
 fn apply_geist_card_skin(
     mut commands: Commands,
     theme: Res<UiTheme>,
@@ -265,6 +277,10 @@ fn update_responsive_flex(
     }
 }
 
+#[expect(
+    clippy::type_complexity,
+    reason = "文本输入 focus 切换依赖 Query 过滤组合，保持系统签名直观更重要"
+)]
 fn update_text_input_focus(
     mut focus: ResMut<UiFocus>,
     inputs: Query<(Entity, &Interaction), (With<UiTextInput>, Changed<Interaction>)>,
@@ -319,6 +335,10 @@ fn handle_text_input_keyboard(
     }
 }
 
+#[expect(
+    clippy::type_complexity,
+    reason = "输入框皮肤系统需要同时访问多个可选样式组件"
+)]
 fn apply_geist_text_input_skin(
     mut commands: Commands,
     theme: Res<UiTheme>,
@@ -385,6 +405,10 @@ fn apply_geist_text_input_skin(
     }
 }
 
+#[expect(
+    clippy::type_complexity,
+    reason = "输入框值同步依赖复合变更过滤，别名抽离收益有限"
+)]
 fn sync_text_input_value_text(
     theme: Res<UiTheme>,
     inputs: Query<(&UiTextInput, &Children), Or<(Changed<UiTextInput>, Added<UiTextInput>)>>,

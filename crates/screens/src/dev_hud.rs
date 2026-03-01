@@ -15,7 +15,7 @@ pub struct DevHudPlugin;
 impl Plugin for DevHudPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(FrameTimeDiagnosticsPlugin::default())
-            .add_plugins(SystemInformationDiagnosticsPlugin::default())
+            .add_plugins(SystemInformationDiagnosticsPlugin)
             .init_resource::<DevHudEnabled>()
             .init_resource::<DevHudRefreshTimer>()
             .add_systems(OnEnter(AppState::InGame), spawn_dev_hud)

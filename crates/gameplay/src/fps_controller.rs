@@ -79,6 +79,10 @@ pub(crate) fn unlock_cursor(mut cursors: Query<&mut CursorOptions, With<PrimaryW
     cursor.grab_mode = CursorGrabMode::None;
 }
 
+#[expect(
+    clippy::type_complexity,
+    reason = "玩家与相机的双 Query 过滤是 Bevy 常见模式，直接写更清晰"
+)]
 pub(crate) fn apply_mouse_look(
     mouse_motion: Res<AccumulatedMouseMotion>,
     mut players: Query<

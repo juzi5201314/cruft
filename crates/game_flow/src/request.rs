@@ -102,6 +102,10 @@ pub fn reduce(snapshot: FlowSnapshot, request: &FlowRequest) -> FlowActions {
 }
 
 /// 唯一写入 `NextState<_>` 的系统：按 request reducer 输出执行状态切换与 intent 写入。
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Bevy ECS 系统参数注入需要拆分资源与状态，强行打包会降低可读性"
+)]
 pub fn apply_flow_requests(
     mut commands: Commands,
     mut requests: MessageReader<FlowRequest>,

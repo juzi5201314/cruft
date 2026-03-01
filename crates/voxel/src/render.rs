@@ -358,6 +358,10 @@ fn init_voxel_render_pipeline(
     });
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "RenderApp prepare 系统需要同时访问 view、buffer、pipeline 与 GPU 资源"
+)]
 fn prepare_voxel_gpu_buffers(
     views: Query<(
         &ExtractedView,
@@ -722,6 +726,10 @@ fn aabb_visible(clip_from_world: Mat4, min: Vec3, max: Vec3) -> bool {
     !(all_left || all_right || all_bottom || all_top || all_near || all_far)
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "绑定组准备阶段需要多类 render 资源，拆分会引入额外状态同步"
+)]
 fn prepare_voxel_bind_groups(
     pipeline: Res<VoxelRenderPipeline>,
     buffers: Res<VoxelGpuBuffers>,

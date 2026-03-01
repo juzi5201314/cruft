@@ -35,7 +35,7 @@ impl Plugin for ScreensPlugin {
 struct UiCamera;
 
 fn spawn_ui_camera(mut commands: Commands) {
-    commands.spawn((UiCamera, Camera2d::default()));
+    commands.spawn((UiCamera, Camera2d));
 }
 
 fn configure_ui_camera_for_in_game(mut cameras: Query<&mut Camera, With<UiCamera>>) {

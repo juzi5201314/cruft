@@ -204,11 +204,11 @@ fn correct_position_against_face(
             let next_aabb_max = next_center.x + half.x;
             let next_aabb_min = next_center.x - half.x;
             if step > 0.0 {
-                let voxel_x = (next_aabb_max - EPS).floor() as f32;
+                let voxel_x = (next_aabb_max - EPS).floor();
                 let corrected_center_x = voxel_x - EPS - half.x;
                 corrected_center_x - collider.center_offset.x
             } else {
-                let voxel_x = (next_aabb_min + EPS).floor() as f32;
+                let voxel_x = (next_aabb_min + EPS).floor();
                 let corrected_center_x = voxel_x + 1.0 + EPS + half.x;
                 corrected_center_x - collider.center_offset.x
             }
@@ -217,11 +217,11 @@ fn correct_position_against_face(
             let next_aabb_max = next_center.y + half.y;
             let next_aabb_min = next_center.y - half.y;
             if step > 0.0 {
-                let voxel_y = (next_aabb_max - EPS).floor() as f32;
+                let voxel_y = (next_aabb_max - EPS).floor();
                 let corrected_center_y = voxel_y - EPS - half.y;
                 corrected_center_y - collider.center_offset.y
             } else {
-                let voxel_y = (next_aabb_min + EPS).floor() as f32;
+                let voxel_y = (next_aabb_min + EPS).floor();
                 let corrected_center_y = voxel_y + 1.0 + EPS + half.y;
                 corrected_center_y - collider.center_offset.y
             }
@@ -230,11 +230,11 @@ fn correct_position_against_face(
             let next_aabb_max = next_center.z + half.z;
             let next_aabb_min = next_center.z - half.z;
             if step > 0.0 {
-                let voxel_z = (next_aabb_max - EPS).floor() as f32;
+                let voxel_z = (next_aabb_max - EPS).floor();
                 let corrected_center_z = voxel_z - EPS - half.z;
                 corrected_center_z - collider.center_offset.z
             } else {
-                let voxel_z = (next_aabb_min + EPS).floor() as f32;
+                let voxel_z = (next_aabb_min + EPS).floor();
                 let corrected_center_z = voxel_z + 1.0 + EPS + half.z;
                 corrected_center_z - collider.center_offset.z
             }

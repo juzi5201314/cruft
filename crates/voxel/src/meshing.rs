@@ -22,6 +22,10 @@ impl PackedQuad {
     /// `docs/voxel/meshing.md` 的 PackedQuad(u64) 写死布局：
     /// - low32: x(6) | y(6) | z(6) | w_minus1(5) | h_minus1(5) | face(3) | reserved1(1)
     /// - high32: material_key(8) | flags(8) | reserved(16)
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "PackedQuad 位打包构造直接映射字段，保持扁平参数最直观"
+    )]
     pub fn new(x: u8, y: u8, z: u8, w: u8, h: u8, face: Face, material_key: u8, flags: u8) -> Self {
         debug_assert!(x <= 32);
         debug_assert!(y <= 32);
@@ -265,6 +269,10 @@ fn grid_index(u: usize, v: usize) -> usize {
 }
 
 #[inline]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "面可见性计算需要坐标与方向分量，签名保持简单可内联"
+)]
 fn face_key_for(
     padded: &PaddedChunk,
     defs: &BlockDefs,
