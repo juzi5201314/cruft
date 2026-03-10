@@ -7,7 +7,7 @@ use serde_json::Value;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::types::{SaveId, SaveMeta};
+use crate::types::{SaveId, SaveMeta, SaveWorldInfo};
 
 pub const FORMAT_VERSION: u32 = 3;
 const DB_FILE: &str = "saves.redb";
@@ -251,4 +251,42 @@ pub fn touch_last_played(root: &Path, id: &SaveId) -> io::Result<SaveMeta> {
     meta.last_played_at = OffsetDateTime::now_utc().unix_timestamp();
     write_save_to_db(&db, &meta, &payload)?;
     Ok(meta)
+}
+
+
+pub fn read_save_world_info(root: &Path, id: &SaveId) -> io::Result<SaveWorldInfo> {
+    let db = open_db(root)?;
+    let read = db.begin_read().map_err(io_other)?;
+    let metas = read.open_table(META_TABLE).map_err(io_other)?;
+    let payloads = read.open_table(PAYLOAD_TABLE).map_err(io_other)?;
+
+    let meta_bytes = metas
+        .get(id.0.as_str())
+        .map_err(io_other)?
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "save meta not found"))?;
+    let payload_bytes = payloads
+        .get(id.0.as_str())
+        .map_err(io_other)?
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "save payload not found"))?;
+
+    let meta = deserialize_meta(meta_bytes.value())?;
+    let payload = deserialize_payload(payload_bytes.value())?;
+
+    let block_count = payload.world.len() as u64;
+    let chunk_voxel_capacity = (32_u64).pow(3);
+    let chunk_count = if block_count == 0 {
+        0
+    } else {
+        block_count.div_ceil(chunk_voxel_capacity)
+    };
+
+    Ok(SaveWorldInfo {
+        id: meta.id,
+        display_name: meta.display_name,
+        created_at: meta.created_at,
+        last_played_at: meta.last_played_at,
+        payload_size_bytes: payload_bytes.value().len() as u64,
+        chunk_count,
+        block_count,
+    })
 }

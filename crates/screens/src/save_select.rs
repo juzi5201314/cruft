@@ -1,9 +1,10 @@
 use bevy::prelude::*;
-
 use bevy::state::state_scoped::DespawnOnExit;
 
 use cruft_game_flow::{FlowRequest, FrontEndState};
-use cruft_save::{SaveId, SaveIndex, SaveOpRequest, SaveOpResult};
+use cruft_save::{
+    SaveId, SaveIndex, SaveInfoRequest, SaveInfoResult, SaveOpRequest, SaveOpResult, SaveWorldInfo,
+};
 use cruft_ui::ui::{UiBuilder, UiEntityCommandsExt};
 
 use crate::common::spawn_grid_background;
@@ -22,13 +23,11 @@ impl Plugin for SaveSelectScreenPlugin {
                     rebuild_save_list
                         .run_if(resource_changed::<SaveIndex>)
                         .run_if(in_state(FrontEndState::SaveSelect)),
-                    update_selection_styles
-                        .run_if(resource_changed::<SaveSelectState>)
-                        .run_if(in_state(FrontEndState::SaveSelect)),
                     sync_modal
                         .run_if(resource_changed::<SaveSelectState>)
                         .run_if(in_state(FrontEndState::SaveSelect)),
                     handle_save_results.run_if(in_state(FrontEndState::SaveSelect)),
+                    handle_save_info_results.run_if(in_state(FrontEndState::SaveSelect)),
                 ),
             );
     }
@@ -36,8 +35,10 @@ impl Plugin for SaveSelectScreenPlugin {
 
 #[derive(Resource, Debug, Default, Clone)]
 struct SaveSelectState {
-    selected: Option<String>,
     modal: Option<ModalKind>,
+    target_id: Option<String>,
+    info: Option<SaveWorldInfo>,
+    info_error: Option<String>,
 }
 
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -48,6 +49,7 @@ enum ModalKind {
     New,
     Rename,
     ConfirmDelete,
+    Info,
 }
 
 #[derive(Component)]
@@ -57,7 +59,10 @@ struct SaveSelectRoot;
 struct SaveListContainer;
 
 #[derive(Component)]
-struct SaveEntryId(String);
+struct SaveEntryCard;
+
+#[derive(Component)]
+struct SaveActionTarget(String);
 
 #[derive(Component)]
 struct SaveSelectModalRoot;
@@ -110,78 +115,42 @@ fn spawn_save_select_screen(
                 });
 
                 ui.spawn(Node {
-                    width: Val::Px(560.0),
+                    width: Val::Px(640.0),
                     flex_direction: FlexDirection::Row,
-                    column_gap: Val::Px(24.0),
+                    justify_content: JustifyContent::SpaceBetween,
                     ..default()
                 })
                 .with_children(|p| {
                     let mut ui = UiBuilder::new(p, &theme);
-
-                    // List
-                    let list_container = ui.spawn((
-                        SaveListContainer,
-                        Node {
-                            width: Val::Px(360.0),
-                            flex_direction: FlexDirection::Column,
-                            row_gap: Val::Px(10.0),
-                            ..default()
-                        },
-                    ));
-                    list_container_entity = Some(list_container.id());
-
-                    // Actions
-                    ui.spawn(Node {
-                        width: Val::Px(176.0),
-                        flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(12.0),
-                        ..default()
+                    ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
+                        ui.label("New Save");
                     })
-                    .with_children(|p| {
-                        let mut ui = UiBuilder::new(p, &theme);
+                    .click(on_new_clicked)
+                    .size(Val::Px(140.0), Val::Px(44.0));
 
-                        ui.button(cruft_ui::UiButtonVariant::Primary, |ui| {
-                            ui.label("Load");
-                        })
-                        .click(on_load_clicked)
-                        .size(Val::Px(176.0), Val::Px(52.0));
-
-                        ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
-                            ui.label("New");
-                        })
-                        .click(on_new_clicked)
-                        .size(Val::Px(176.0), Val::Px(52.0));
-
-                        ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
-                            ui.label("Rename");
-                        })
-                        .click(on_rename_clicked)
-                        .size(Val::Px(176.0), Val::Px(52.0));
-
-                        ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
-                            ui.label("Copy");
-                        })
-                        .click(on_copy_clicked)
-                        .size(Val::Px(176.0), Val::Px(52.0));
-
-                        ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
-                            ui.label("Delete");
-                        })
-                        .click(on_delete_clicked)
-                        .size(Val::Px(176.0), Val::Px(52.0));
-
-                        ui.spawn(Node {
-                            height: Val::Px(8.0),
-                            ..default()
-                        });
-
-                        ui.button(cruft_ui::UiButtonVariant::Ghost, |ui| {
-                            ui.label("Back");
-                        })
-                        .click(on_back_clicked)
-                        .size(Val::Px(176.0), Val::Px(44.0));
-                    });
+                    ui.button(cruft_ui::UiButtonVariant::Ghost, |ui| {
+                        ui.label("Back");
+                    })
+                    .click(on_back_clicked)
+                    .size(Val::Px(140.0), Val::Px(44.0));
                 });
+
+                ui.spawn(Node {
+                    height: Val::Px(12.0),
+                    ..default()
+                });
+
+                let list_container = ui.spawn((
+                    SaveListContainer,
+                    Node {
+                        width: Val::Px(640.0),
+                        max_height: Val::Px(480.0),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(10.0),
+                        ..default()
+                    },
+                ));
+                list_container_entity = Some(list_container.id());
             })
             .size(Val::Auto, Val::Auto);
         });
@@ -189,16 +158,71 @@ fn spawn_save_select_screen(
     let Some(container) = list_container_entity else {
         return;
     };
+    spawn_save_entries(&mut commands, container, &theme, &index);
+}
 
+fn spawn_save_entries(
+    commands: &mut Commands,
+    container: Entity,
+    theme: &cruft_ui::UiTheme,
+    index: &SaveIndex,
+) {
     commands.entity(container).with_children(|parent| {
-        let mut ui = UiBuilder::new(parent, &theme);
+        let mut ui = UiBuilder::new(parent, theme);
         for meta in index.items.iter() {
-            ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
+            let mut card = ui.card(|ui| {
                 ui.label_semibold(&meta.display_name);
-            })
-            .insert(SaveEntryId(meta.id.clone()))
-            .click(on_save_entry_clicked)
-            .size(Val::Percent(100.0), Val::Px(44.0));
+                ui.spawn(Node {
+                    height: Val::Px(8.0),
+                    ..default()
+                });
+
+                ui.spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(8.0),
+                    flex_wrap: FlexWrap::Wrap,
+                    ..default()
+                })
+                .with_children(|p| {
+                    let mut ui = UiBuilder::new(p, theme);
+                    ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
+                        ui.label("Load");
+                    })
+                    .insert(SaveActionTarget(meta.id.clone()))
+                    .click(on_load_clicked)
+                    .size(Val::Px(108.0), Val::Px(36.0));
+
+                    ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
+                        ui.label("Rename");
+                    })
+                    .insert(SaveActionTarget(meta.id.clone()))
+                    .click(on_rename_clicked)
+                    .size(Val::Px(108.0), Val::Px(36.0));
+
+                    ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
+                        ui.label("Copy");
+                    })
+                    .insert(SaveActionTarget(meta.id.clone()))
+                    .click(on_copy_clicked)
+                    .size(Val::Px(108.0), Val::Px(36.0));
+
+                    ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
+                        ui.label("Delete");
+                    })
+                    .insert(SaveActionTarget(meta.id.clone()))
+                    .click(on_delete_clicked)
+                    .size(Val::Px(108.0), Val::Px(36.0));
+
+                    ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
+                        ui.label("Info");
+                    })
+                    .insert(SaveActionTarget(meta.id.clone()))
+                    .click(on_info_clicked)
+                    .size(Val::Px(108.0), Val::Px(36.0));
+                });
+            });
+            card.insert(SaveEntryCard);
+            card.size(Val::Percent(100.0), Val::Auto);
         }
     });
 }
@@ -207,63 +231,18 @@ fn rebuild_save_list(
     mut commands: Commands,
     theme: Res<cruft_ui::UiTheme>,
     index: Res<SaveIndex>,
-    state: Res<SaveSelectState>,
     container: Query<Entity, With<SaveListContainer>>,
-    items: Query<Entity, With<SaveEntryId>>,
+    cards: Query<Entity, With<SaveEntryCard>>,
 ) {
     let Ok(container) = container.single() else {
         return;
     };
 
-    for e in &items {
-        commands.entity(e).try_despawn();
+    for entity in &cards {
+        commands.entity(entity).try_despawn();
     }
 
-    commands.entity(container).with_children(|parent| {
-        let mut ui = UiBuilder::new(parent, &theme);
-        for meta in index.items.iter() {
-            let id = meta.id.clone();
-            let mut button = ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
-                ui.label_semibold(&meta.display_name);
-            });
-            button.insert(SaveEntryId(id.clone()));
-            button.click(on_save_entry_clicked);
-            button.size(Val::Percent(100.0), Val::Px(44.0));
-
-            if state.selected.as_deref() == Some(id.as_str()) {
-                button.styles(cruft_ui::UiButtonStyleOverride {
-                    bg: Some(theme.accent),
-                    fg: None,
-                    border: None,
-                    radius: None,
-                });
-            }
-        }
-    });
-}
-
-fn update_selection_styles(
-    mut commands: Commands,
-    theme: Res<cruft_ui::UiTheme>,
-    state: Res<SaveSelectState>,
-    items: Query<(Entity, &SaveEntryId)>,
-) {
-    for (entity, id) in &items {
-        if state.selected.as_deref() == Some(id.0.as_str()) {
-            commands
-                .entity(entity)
-                .insert(cruft_ui::UiButtonStyleOverride {
-                    bg: Some(theme.accent),
-                    fg: None,
-                    border: None,
-                    radius: None,
-                });
-        } else {
-            commands
-                .entity(entity)
-                .remove::<cruft_ui::UiButtonStyleOverride>();
-        }
-    }
+    spawn_save_entries(&mut commands, container, &theme, &index);
 }
 
 fn sync_modal(
@@ -297,6 +276,7 @@ fn sync_modal(
         ModalKind::New => spawn_new_modal(&mut commands, root, &theme),
         ModalKind::Rename => spawn_rename_modal(&mut commands, root, &theme, &state, &index),
         ModalKind::ConfirmDelete => spawn_delete_modal(&mut commands, root, &theme, &state),
+        ModalKind::Info => spawn_info_modal(&mut commands, root, &theme, &state),
     }
 }
 
@@ -355,7 +335,7 @@ fn spawn_rename_modal(
     state: &SaveSelectState,
     index: &SaveIndex,
 ) {
-    let Some(id) = state.selected.as_deref() else {
+    let Some(id) = state.target_id.as_deref() else {
         return;
     };
     let initial = index
@@ -418,7 +398,7 @@ fn spawn_delete_modal(
     theme: &cruft_ui::UiTheme,
     state: &SaveSelectState,
 ) {
-    if state.selected.is_none() {
+    if state.target_id.is_none() {
         return;
     }
 
@@ -465,23 +445,61 @@ fn spawn_delete_modal(
     });
 }
 
-fn on_save_entry_clicked(
-    ev: On<cruft_ui::UiClick>,
-    mut state: ResMut<SaveSelectState>,
-    ids: Query<&SaveEntryId>,
+fn spawn_info_modal(
+    commands: &mut Commands,
+    root: Entity,
+    theme: &cruft_ui::UiTheme,
+    state: &SaveSelectState,
 ) {
-    if let Ok(id) = ids.get(ev.entity) {
-        state.selected = Some(id.0.clone());
-    }
+    commands.entity(root).with_children(|parent| {
+        let mut ui = UiBuilder::new(parent, theme);
+        ui.modal(|ui| {
+            ui.card(|ui| {
+                ui.label_semibold("World Info");
+                ui.spawn(Node {
+                    height: Val::Px(12.0),
+                    ..default()
+                });
+
+                if let Some(err) = state.info_error.as_deref() {
+                    ui.label(format!("Load failed: {err}"));
+                } else if let Some(info) = state.info.as_ref() {
+                    ui.label(format!("Name: {}", info.display_name));
+                    ui.label(format!("Created: {}", info.created_at));
+                    ui.label(format!("Last modified: {}", info.last_played_at));
+                    ui.label(format!("Size: {} bytes", info.payload_size_bytes));
+                    ui.label(format!("Chunks: {}", info.chunk_count));
+                    ui.label(format!("Blocks: {}", info.block_count));
+                } else {
+                    ui.label("Loading world info...");
+                }
+
+                ui.spawn(Node {
+                    height: Val::Px(16.0),
+                    ..default()
+                });
+                ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
+                    ui.label("Close");
+                })
+                .click(on_modal_cancel_clicked)
+                .size(Val::Px(140.0), Val::Px(44.0));
+            })
+            .size(Val::Px(460.0), Val::Auto);
+        })
+        .insert((
+            SaveSelectModalRoot,
+            DespawnOnExit(FrontEndState::SaveSelect),
+        ));
+    });
 }
 
 fn on_load_clicked(
-    _ev: On<cruft_ui::UiClick>,
-    state: Res<SaveSelectState>,
+    ev: On<cruft_ui::UiClick>,
     mut flow: MessageWriter<FlowRequest>,
+    targets: Query<&SaveActionTarget>,
 ) {
-    if let Some(selected_id) = state.selected.as_ref() {
-        flow.write(FlowRequest::StartLoadSave(selected_id.clone()));
+    if let Ok(target) = targets.get(ev.entity) {
+        flow.write(FlowRequest::StartLoadSave(target.0.clone()));
     }
 }
 
@@ -489,27 +507,53 @@ fn on_new_clicked(_ev: On<cruft_ui::UiClick>, mut state: ResMut<SaveSelectState>
     state.modal = Some(ModalKind::New);
 }
 
-fn on_rename_clicked(_ev: On<cruft_ui::UiClick>, mut state: ResMut<SaveSelectState>) {
-    if state.selected.is_some() {
+fn on_rename_clicked(
+    ev: On<cruft_ui::UiClick>,
+    mut state: ResMut<SaveSelectState>,
+    targets: Query<&SaveActionTarget>,
+) {
+    if let Ok(target) = targets.get(ev.entity) {
+        state.target_id = Some(target.0.clone());
         state.modal = Some(ModalKind::Rename);
     }
 }
 
 fn on_copy_clicked(
-    _ev: On<cruft_ui::UiClick>,
-    state: Res<SaveSelectState>,
+    ev: On<cruft_ui::UiClick>,
     mut ops: MessageWriter<SaveOpRequest>,
+    targets: Query<&SaveActionTarget>,
 ) {
-    if let Some(selected_id) = state.selected.as_ref() {
+    if let Ok(target) = targets.get(ev.entity) {
         ops.write(SaveOpRequest::Copy {
-            id: SaveId(selected_id.clone()),
+            id: SaveId(target.0.clone()),
         });
     }
 }
 
-fn on_delete_clicked(_ev: On<cruft_ui::UiClick>, mut state: ResMut<SaveSelectState>) {
-    if state.selected.is_some() {
+fn on_delete_clicked(
+    ev: On<cruft_ui::UiClick>,
+    mut state: ResMut<SaveSelectState>,
+    targets: Query<&SaveActionTarget>,
+) {
+    if let Ok(target) = targets.get(ev.entity) {
+        state.target_id = Some(target.0.clone());
         state.modal = Some(ModalKind::ConfirmDelete);
+    }
+}
+
+fn on_info_clicked(
+    ev: On<cruft_ui::UiClick>,
+    mut state: ResMut<SaveSelectState>,
+    mut requests: MessageWriter<SaveInfoRequest>,
+    targets: Query<&SaveActionTarget>,
+) {
+    if let Ok(target) = targets.get(ev.entity) {
+        let id = target.0.clone();
+        state.target_id = Some(id.clone());
+        state.info = None;
+        state.info_error = None;
+        state.modal = Some(ModalKind::Info);
+        requests.write(SaveInfoRequest { id: SaveId(id) });
     }
 }
 
@@ -573,7 +617,7 @@ fn on_rename_confirm_clicked(
     mut state: ResMut<SaveSelectState>,
     inputs: Query<&cruft_ui::UiTextInput, With<SaveSelectModalTextInput>>,
 ) {
-    let Some(selected_id) = state.selected.as_ref() else {
+    let Some(target_id) = state.target_id.as_ref() else {
         return;
     };
     let Some(new_name) = read_modal_input(&inputs) else {
@@ -581,7 +625,7 @@ fn on_rename_confirm_clicked(
     };
 
     ops.write(SaveOpRequest::Rename {
-        id: SaveId(selected_id.clone()),
+        id: SaveId(target_id.clone()),
         new_name,
     });
     state.modal = None;
@@ -593,7 +637,7 @@ fn on_rename_submit(
     mut state: ResMut<SaveSelectState>,
     inputs: Query<&cruft_ui::UiTextInput>,
 ) {
-    let Some(selected_id) = state.selected.as_ref() else {
+    let Some(target_id) = state.target_id.as_ref() else {
         return;
     };
     let Ok(input) = inputs.get(ev.entity) else {
@@ -605,7 +649,7 @@ fn on_rename_submit(
     }
 
     ops.write(SaveOpRequest::Rename {
-        id: SaveId(selected_id.clone()),
+        id: SaveId(target_id.clone()),
         new_name,
     });
     state.modal = None;
@@ -616,9 +660,9 @@ fn on_delete_confirm_clicked(
     mut ops: MessageWriter<SaveOpRequest>,
     mut state: ResMut<SaveSelectState>,
 ) {
-    if let Some(selected_id) = state.selected.as_ref() {
+    if let Some(target_id) = state.target_id.as_ref() {
         ops.write(SaveOpRequest::Delete {
-            id: SaveId(selected_id.clone()),
+            id: SaveId(target_id.clone()),
         });
     }
     state.modal = None;
@@ -631,19 +675,34 @@ fn handle_save_results(
     for msg in reader.read() {
         match msg {
             SaveOpResult::Copied { meta } | SaveOpResult::Created { meta } => {
-                state.selected = Some(meta.id.clone());
+                state.target_id = Some(meta.id.clone());
             }
             SaveOpResult::Deleted { id } => {
-                if state.selected.as_deref() == Some(id.0.as_str()) {
-                    state.selected = None;
-                }
-            }
-            SaveOpResult::Renamed { meta } => {
-                if state.selected.as_deref() == Some(meta.id.as_str()) {
-                    state.selected = Some(meta.id.clone());
+                if state.target_id.as_deref() == Some(id.0.as_str()) {
+                    state.target_id = None;
                 }
             }
             _ => {}
+        }
+    }
+}
+
+fn handle_save_info_results(
+    mut reader: MessageReader<SaveInfoResult>,
+    mut state: ResMut<SaveSelectState>,
+) {
+    for msg in reader.read() {
+        match msg {
+            SaveInfoResult::Loaded { info } => {
+                if state.target_id.as_deref() == Some(info.id.as_str()) {
+                    state.info = Some(info.clone());
+                    state.info_error = None;
+                }
+            }
+            SaveInfoResult::Failed { message } => {
+                state.info = None;
+                state.info_error = Some(message.clone());
+            }
         }
     }
 }
