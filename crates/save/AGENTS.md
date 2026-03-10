@@ -22,7 +22,7 @@
 ## Flow integration
 
 - BootLoading：`OnEnter(AppState::BootLoading)` 触发 `start_scan_index`，完成后写入 `BootReady::SAVE_INDEX`。
-- InGame Loading：由 `PendingGameStart` 驱动加载/新建，并在失败时回退到菜单（写 `FlowRequest`）。
+- InGame Loading：`OnEnter(InGameState::Loading)` 读取 `PendingGameStart` 发起请求（并移除该资源），`SaveLoadResult` 在 Loading 内统一驱动 `FlowRequest::FinishGameLoading`/`QuitToMainMenu`。
 
 ## Testing
 
