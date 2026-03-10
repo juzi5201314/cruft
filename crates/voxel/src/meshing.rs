@@ -21,8 +21,8 @@ pub struct PackedQuad(pub u64);
 impl PackedQuad {
     /// `docs/voxel/meshing.md` 的 PackedQuad(u64) 写死布局：
     /// - low32: x(6) | y(6) | z(6) | w_minus1(5) | h_minus1(5) | face(3) | reserved1(1)
-    /// - high32: material_key(8) | flags(8) | reserved(16)
-    pub fn new(x: u8, y: u8, z: u8, w: u8, h: u8, face: Face, material_key: u8, flags: u8) -> Self {
+    /// - high32: material_id(16) | flags(8) | reserved(8)
+    pub fn new(x: u8, y: u8, z: u8, w: u8, h: u8, face: Face, material_id: u16, flags: u8) -> Self {
         debug_assert!(x <= 32);
         debug_assert!(y <= 32);
         debug_assert!(z <= 32);
@@ -35,7 +35,7 @@ impl PackedQuad {
             | (((w as u32) - 1) << 18)
             | (((h as u32) - 1) << 23)
             | ((face as u32) << 28);
-        let high32 = (material_key as u32) | ((flags as u32) << 8);
+        let high32 = (material_id as u32) | ((flags as u32) << 16);
         Self((low32 as u64) | ((high32 as u64) << 32))
     }
 
@@ -48,8 +48,8 @@ impl PackedQuad {
         let w = (((low >> 18) & 0x1F) as u8) + 1;
         let h = (((low >> 23) & 0x1F) as u8) + 1;
         let face = ((low >> 28) & 0x07) as u8;
-        let material_key = (high & 0xFF) as u8;
-        let flags = ((high >> 8) & 0xFF) as u8;
+        let material_id = (high & 0xFFFF) as u16;
+        let flags = ((high >> 16) & 0xFF) as u8;
         DecodedQuad {
             x,
             y,
@@ -57,7 +57,7 @@ impl PackedQuad {
             w,
             h,
             face,
-            material_key,
+            material_id,
             flags,
         }
     }
@@ -71,7 +71,7 @@ pub struct DecodedQuad {
     pub w: u8,
     pub h: u8,
     pub face: u8,
-    pub material_key: u8,
+    pub material_id: u16,
     pub flags: u8,
 }
 
@@ -180,7 +180,7 @@ fn emit_faces_for_voxel(
             1,
             1,
             Face::PosX,
-            a_def.material_key,
+            a_def.material_binding.material_key_for(Face::PosX),
             layer_flags,
         ),
         opaque,
@@ -200,7 +200,7 @@ fn emit_faces_for_voxel(
             1,
             1,
             Face::NegX,
-            a_def.material_key,
+            a_def.material_binding.material_key_for(Face::NegX),
             layer_flags,
         ),
         opaque,
@@ -220,7 +220,7 @@ fn emit_faces_for_voxel(
             1,
             1,
             Face::PosY,
-            a_def.material_key,
+            a_def.material_binding.material_key_for(Face::PosY),
             layer_flags,
         ),
         opaque,
@@ -240,7 +240,7 @@ fn emit_faces_for_voxel(
             1,
             1,
             Face::NegY,
-            a_def.material_key,
+            a_def.material_binding.material_key_for(Face::NegY),
             layer_flags,
         ),
         opaque,
@@ -260,7 +260,7 @@ fn emit_faces_for_voxel(
             1,
             1,
             Face::PosZ,
-            a_def.material_key,
+            a_def.material_binding.material_key_for(Face::PosZ),
             layer_flags,
         ),
         opaque,
@@ -280,7 +280,7 @@ fn emit_faces_for_voxel(
             1,
             1,
             Face::NegZ,
-            a_def.material_key,
+            a_def.material_binding.material_key_for(Face::NegZ),
             layer_flags,
         ),
         opaque,
@@ -358,7 +358,7 @@ mod tests {
                 w: 1,
                 h: 1,
                 face,
-                material_key: defs.def(STONE).material_key,
+                material_id: defs.def(STONE).material_binding.material_key_for(Face::PosX),
                 flags: RenderLayer::Opaque as u8,
             })
             .collect::<Vec<_>>();
@@ -368,4 +368,13 @@ mod tests {
             assert_eq!(a, b);
         }
     }
+    #[test]
+    fn packed_quad_roundtrip_with_u16_material() {
+        let quad = PackedQuad::new(1, 2, 3, 4, 5, Face::PosZ, 513, 7);
+        let decoded = quad.decode();
+        assert_eq!(decoded.material_id, 513);
+        assert_eq!(decoded.flags, 7);
+        assert_eq!(decoded.face, Face::PosZ as u8);
+    }
+
 }

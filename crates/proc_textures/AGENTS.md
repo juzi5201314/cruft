@@ -35,3 +35,10 @@
 ## Gotchas
 
 - `crates/app/src/plugins/procedural_texture.rs` 是旧/样例实现（与此 crate 高度重复）；修改生产逻辑优先改这里。
+
+
+## Current schema/status notes
+
+- 生产 loader 支持 `schema_version = 1`（并兼容 legacy 顶层数组）。
+- 启动状态机对外提供 `Loading/Ready/Failed(String)`；失败路径必须显式日志，不可 panic 卡住。
+- `TextureRegistry(name -> layer_index)` 是 block/material 绑定唯一来源，禁止依赖 JSON 顺序。

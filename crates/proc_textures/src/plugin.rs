@@ -6,6 +6,7 @@
 //! - 主世界通过 channel 收到 ready 信号，用于 BootLoading 聚合
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::sync::{mpsc, Mutex};
 use std::time::Instant;
 
@@ -46,23 +47,64 @@ const TEXTURE_DATA_PATH: &str = "texture_data/blocks.texture.json";
 #[derive(Resource, Clone)]
 pub struct BlockTextureArray(pub Handle<Image>);
 
-/// 程序化贴图是否已准备完成（BootLoading 聚合用）。
-#[derive(Resource, Debug, Clone, Copy, Default)]
+/// 程序化贴图服务状态。
+#[derive(Resource, Debug, Clone, Default)]
+pub enum ProcTexturesStatus {
+    #[default]
+    Loading,
+    Ready,
+    Failed(String),
+}
+
+#[derive(Debug, Clone)]
+enum ProcTexturesSignal {
+    Ready,
+    Failed(String),
+}
+
+#[derive(Resource, Debug, Clone, Default)]
 pub struct ProcTexturesReady(pub bool);
 
+#[derive(Resource, Debug, Clone, Default)]
+pub struct TextureRegistry {
+    name_to_layer: HashMap<String, u16>,
+}
+
+impl TextureRegistry {
+    pub fn layer_index(&self, name: &str) -> Result<u16, String> {
+        self.name_to_layer
+            .get(name)
+            .copied()
+            .ok_or_else(|| format!("Texture registry missing entry: {name}"))
+    }
+
+    fn from_specs(specs: &[TextureSpec]) -> Result<Self, String> {
+        let mut name_to_layer = HashMap::with_capacity(specs.len());
+        for (i, spec) in specs.iter().enumerate() {
+            let index = u16::try_from(i)
+                .map_err(|_| format!("Texture layer index overflows u16: {i}"))?;
+            if name_to_layer.insert(spec.name.clone(), index).is_some() {
+                return Err(format!("Duplicate texture name: {}", spec.name));
+            }
+        }
+        Ok(Self { name_to_layer })
+    }
+}
+
 #[derive(Resource)]
-struct ProcTexturesReadyRx(Mutex<mpsc::Receiver<()>>);
+struct ProcTexturesReadyRx(Mutex<mpsc::Receiver<ProcTexturesSignal>>);
 
 #[derive(Resource, Clone)]
-struct ProcTexturesReadyTx(mpsc::Sender<()>);
+struct ProcTexturesReadyTx(mpsc::Sender<ProcTexturesSignal>);
 
 pub struct ProcTexturesPlugin;
 
 impl Plugin for ProcTexturesPlugin {
     fn build(&self, app: &mut App) {
-        let (tx, rx) = mpsc::channel::<()>();
+        let (tx, rx) = mpsc::channel::<ProcTexturesSignal>();
 
         app.init_resource::<ProcTexturesReady>()
+            .init_resource::<ProcTexturesStatus>()
             .insert_resource(ProcTexturesReadyRx(Mutex::new(rx)))
             .add_plugins(MaterialPlugin::<ProceduralArrayMaterial>::default())
             .add_plugins((
@@ -102,6 +144,7 @@ fn load_texture_data_handle(mut commands: Commands, asset_server: Res<AssetServe
 
 fn poll_ready_signal(
     mut ready: ResMut<ProcTexturesReady>,
+    mut status: ResMut<ProcTexturesStatus>,
     rx: Res<ProcTexturesReadyRx>,
     mut boot: ResMut<BootReadiness>,
 ) {
@@ -113,9 +156,18 @@ fn poll_ready_signal(
     let Ok(guard) = rx.0.lock() else {
         return;
     };
-    while guard.try_recv().is_ok() {
-        ready.0 = true;
-        boot.0.insert(BootReady::PROC_TEXTURES);
+    while let Ok(signal) = guard.try_recv() {
+        match signal {
+            ProcTexturesSignal::Ready => {
+                ready.0 = true;
+                *status = ProcTexturesStatus::Ready;
+                boot.0.insert(BootReady::PROC_TEXTURES);
+            }
+            ProcTexturesSignal::Failed(message) => {
+                *status = ProcTexturesStatus::Failed(message.clone());
+                log::error!("Procedural textures initialization failed: {message}");
+            }
+        }
     }
 }
 
@@ -124,6 +176,7 @@ fn setup_procedural_textures_from_data(
     data_handle: Option<Res<TextureDataHandle>>,
     data_assets: Res<Assets<TextureDataAsset>>,
     mut images: ResMut<Assets<Image>>,
+    mut status: ResMut<ProcTexturesStatus>,
     already_initialized: Option<Res<ProceduralTextureInitialized>>,
 ) {
     if already_initialized.is_some() {
@@ -138,17 +191,25 @@ fn setup_procedural_textures_from_data(
     };
 
     let specs = &data.specs;
-    if specs.is_empty() {
-        panic!("{TEXTURE_DATA_PATH} must contain at least one texture spec");
-    }
-    if specs.len() > MAX_LAYERS {
-        panic!(
-            "Too many texture specs in {TEXTURE_DATA_PATH}: got {}, MAX_LAYERS={MAX_LAYERS}",
-            specs.len()
-        );
-    }
 
-    let layer_count = u32::try_from(specs.len()).expect("Too many texture layers");
+    let registry = match TextureRegistry::from_specs(specs) {
+        Ok(registry) => registry,
+        Err(message) => {
+            *status = ProcTexturesStatus::Failed(message.clone());
+            log::error!("Texture registry build failed: {message}");
+            return;
+        }
+    };
+
+    let layer_count = match u32::try_from(specs.len()) {
+        Ok(layer_count) => layer_count,
+        Err(_) => {
+            let message = format!("Too many texture layers in {TEXTURE_DATA_PATH}: {}", specs.len());
+            *status = ProcTexturesStatus::Failed(message.clone());
+            log::error!("{message}");
+            return;
+        }
+    };
 
     let mut image = Image::new_target_texture(
         CANONICAL_TEXTURE_SIZE,
@@ -188,6 +249,7 @@ fn setup_procedural_textures_from_data(
         array: texture.clone(),
     });
     commands.insert_resource(ProceduralTextureArrayParams::from_specs(specs));
+    commands.insert_resource(registry);
     commands.insert_resource(BlockTextureArray(texture));
     commands.insert_resource(ProceduralTextureInitialized);
 }
@@ -257,27 +319,50 @@ impl ProceduralTextureArrayParams {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum TextureStyle {
+    MinecraftQuantized,
+    HdPixelArt,
+    HdRealistic,
+    VectorToon,
+}
+
+impl Default for TextureStyle {
+    fn default() -> Self {
+        Self::MinecraftQuantized
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
 struct TextureSpec {
-    #[serde(rename = "name")]
-    _name: String,
+    name: String,
     size: u32,
     seed: u32,
     octaves: u32,
     noise_scale: f32,
     warp_strength: f32,
     palette: [[u8; 3]; 4],
+    #[serde(default)]
+    style: TextureStyle,
 }
 
 impl TextureSpec {
     fn to_layer_params(&self) -> ProceduralTextureLayerParams {
         let requested_size = self.size.max(1);
         let ratio = CANONICAL_TEXTURE_SIZE as f32 / requested_size as f32;
-
-        // 归一到 64×64 的“语义缩放”策略：
-        // - noise_scale：按分辨率比例缩放，让噪声周期（以像素计）保持接近不变
-        // - warp_strength：按反比例缩放，让 warp 的像素位移保持接近不变
         let noise_scale = (self.noise_scale * ratio).max(1e-6);
         let warp_strength = (self.warp_strength / ratio).max(0.0);
+
+        match self.style {
+            TextureStyle::MinecraftQuantized => {}
+            _ => {
+                log::warn!(
+                    "Texture '{}' requests style {:?}, fallback to minecraft_quantized",
+                    self.name,
+                    self.style
+                );
+            }
+        }
 
         ProceduralTextureLayerParams {
             seed: self.seed,
@@ -312,6 +397,12 @@ struct TextureDataAsset {
     specs: Vec<TextureSpec>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+struct TextureDataV1 {
+    schema_version: u32,
+    textures: Vec<TextureSpec>,
+}
+
 #[derive(Default, TypePath)]
 struct TextureDataLoader;
 
@@ -327,6 +418,68 @@ impl std::fmt::Display for TextureDataLoadError {
 }
 
 impl std::error::Error for TextureDataLoadError {}
+
+fn validate_specs(specs: &[TextureSpec]) -> Result<(), TextureDataLoadError> {
+    if specs.is_empty() {
+        return Err(TextureDataLoadError {
+            message: format!("{TEXTURE_DATA_PATH} must contain at least one texture spec"),
+        });
+    }
+    if specs.len() > MAX_LAYERS {
+        return Err(TextureDataLoadError {
+            message: format!(
+                "Too many texture specs in {TEXTURE_DATA_PATH}: got {}, MAX_LAYERS={MAX_LAYERS}",
+                specs.len()
+            ),
+        });
+    }
+
+    let mut names = HashMap::new();
+    for spec in specs {
+        if names.insert(spec.name.clone(), true).is_some() {
+            return Err(TextureDataLoadError {
+                message: format!("Duplicate texture name in {TEXTURE_DATA_PATH}: {}", spec.name),
+            });
+        }
+        if spec.size == 0 {
+            return Err(TextureDataLoadError {
+                message: format!("Texture '{}' has invalid size=0", spec.name),
+            });
+        }
+        if spec.noise_scale <= 0.0 {
+            return Err(TextureDataLoadError {
+                message: format!("Texture '{}' has invalid noise_scale={}", spec.name, spec.noise_scale),
+            });
+        }
+    }
+
+    Ok(())
+}
+
+fn parse_texture_specs_from_bytes(bytes: &[u8]) -> Result<Vec<TextureSpec>, TextureDataLoadError> {
+    let value: serde_json::Value = serde_json::from_slice(bytes).map_err(|e| TextureDataLoadError {
+        message: e.to_string(),
+    })?;
+
+    let specs = if value.is_array() {
+        serde_json::from_value::<Vec<TextureSpec>>(value).map_err(|e| TextureDataLoadError {
+            message: format!("Invalid legacy v1 payload: {e}"),
+        })?
+    } else {
+        let wrapper = serde_json::from_slice::<TextureDataV1>(bytes).map_err(|e| TextureDataLoadError {
+            message: format!("Invalid schema wrapper: {e}"),
+        })?;
+        if wrapper.schema_version != 1 {
+            return Err(TextureDataLoadError {
+                message: format!("Unsupported schema_version: {}", wrapper.schema_version),
+            });
+        }
+        wrapper.textures
+    };
+
+    validate_specs(&specs)?;
+    Ok(specs)
+}
 
 impl bevy::asset::AssetLoader for TextureDataLoader {
     type Asset = TextureDataAsset;
@@ -346,15 +499,55 @@ impl bevy::asset::AssetLoader for TextureDataLoader {
             .map_err(|e| TextureDataLoadError {
                 message: e.to_string(),
             })?;
-        let specs: Vec<TextureSpec> =
-            serde_json::from_slice(&bytes).map_err(|e| TextureDataLoadError {
-                message: e.to_string(),
-            })?;
+
+        let specs = parse_texture_specs_from_bytes(&bytes)?;
         Ok(TextureDataAsset { specs })
     }
 
     fn extensions(&self) -> &[&str] {
         &["texture.json"]
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn registry_maps_names_to_layers() {
+        let specs = vec![
+            TextureSpec { name: "a".into(), size: 16, seed: 1, octaves: 1, noise_scale: 1.0, warp_strength: 0.0, palette: [[0,0,0];4], style: TextureStyle::MinecraftQuantized },
+            TextureSpec { name: "b".into(), size: 16, seed: 2, octaves: 1, noise_scale: 1.0, warp_strength: 0.0, palette: [[0,0,0];4], style: TextureStyle::MinecraftQuantized },
+        ];
+        let registry = TextureRegistry::from_specs(&specs).expect("registry");
+        assert_eq!(registry.layer_index("a").unwrap(), 0);
+        assert_eq!(registry.layer_index("b").unwrap(), 1);
+        assert!(registry.layer_index("missing").is_err());
+    }
+
+    #[test]
+    fn duplicate_names_fail() {
+        let specs = vec![
+            TextureSpec { name: "dup".into(), size: 16, seed: 1, octaves: 1, noise_scale: 1.0, warp_strength: 0.0, palette: [[0,0,0];4], style: TextureStyle::MinecraftQuantized },
+            TextureSpec { name: "dup".into(), size: 16, seed: 2, octaves: 1, noise_scale: 1.0, warp_strength: 0.0, palette: [[0,0,0];4], style: TextureStyle::MinecraftQuantized },
+        ];
+        assert!(TextureRegistry::from_specs(&specs).is_err());
+    }
+
+    #[test]
+    fn schema_version_dispatch_works() {
+        let v1_wrapped = br#"{"schema_version":1,"textures":[{"name":"ok","size":16,"seed":1,"octaves":1,"noise_scale":1.0,"warp_strength":0.0,"palette":[[0,0,0],[1,1,1],[2,2,2],[3,3,3]]}]}"#;
+        assert!(parse_texture_specs_from_bytes(v1_wrapped).is_ok());
+
+        let legacy = br#"[{"name":"ok","size":16,"seed":1,"octaves":1,"noise_scale":1.0,"warp_strength":0.0,"palette":[[0,0,0],[1,1,1],[2,2,2],[3,3,3]]}]"#;
+        assert!(parse_texture_specs_from_bytes(legacy).is_ok());
+    }
+
+    #[test]
+    fn invalid_payload_returns_error() {
+        let bad = br#"{"schema_version":2,"textures":[]}"#;
+        assert!(parse_texture_specs_from_bytes(bad).is_err());
     }
 }
 
@@ -494,7 +687,12 @@ impl render_graph::Node for ProceduralTextureNode {
                     }
                     CachedPipelineState::Err(PipelineCacheError::ShaderNotLoaded(_)) => {}
                     CachedPipelineState::Err(err) => {
-                        panic!("Initializing assets/{SHADER_ASSET_PATH}:\n{err}")
+                        let message = format!("Initializing assets/{SHADER_ASSET_PATH}:\n{err}");
+                        if let Some(tx) = world.get_resource::<ProcTexturesReadyTx>() {
+                            let _ = tx.0.send(ProcTexturesSignal::Failed(message.clone()));
+                        }
+                        log::error!("{message}");
+                        self.state = ProceduralTextureNodeState::Done;
                     }
                     _ => {}
                 }
@@ -525,7 +723,7 @@ impl render_graph::Node for ProceduralTextureNode {
                 }
 
                 if let Some(tx) = world.get_resource::<ProcTexturesReadyTx>() {
-                    let _ = tx.0.send(());
+                    let _ = tx.0.send(ProcTexturesSignal::Ready);
                 }
 
                 self.state = ProceduralTextureNodeState::Done;
