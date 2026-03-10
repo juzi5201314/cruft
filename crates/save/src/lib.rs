@@ -5,7 +5,7 @@ pub mod api;
 pub mod types;
 
 pub use api::{
-    CurrentSave, SaveIndex, SaveIndexReady, SaveLoadRequest, SaveLoadResult, SaveOpRequest,
-    SaveOpResult, SavePlugin,
+    CurrentSave, SaveIndex, SaveIndexReady, SaveInfoRequest, SaveInfoResult, SaveLoadRequest,
+    SaveLoadResult, SaveOpRequest, SaveOpResult, SavePlugin,
 };
-pub use types::{LoadedSave, SaveId, SaveMeta, SaveRootDir};
+pub use types::{LoadedSave, SaveId, SaveMeta, SaveRootDir, SaveWorldInfo};

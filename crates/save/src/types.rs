@@ -36,3 +36,14 @@ pub struct SaveMeta {
 pub struct LoadedSave {
     pub meta: SaveMeta,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SaveWorldInfo {
+    pub id: String,
+    pub display_name: String,
+    pub created_at: i64,
+    pub last_played_at: i64,
+    pub payload_size_bytes: u64,
+    pub chunk_count: u64,
+    pub block_count: u64,
+}

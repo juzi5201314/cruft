@@ -10,10 +10,10 @@ use cruft_game_flow::{
 };
 
 use crate::io::{
-    create_new_save, copy_save, load_save_minimal, rename_save, scan_index, soft_delete_save,
-    touch_last_played,
+    create_new_save, copy_save, load_save_minimal, read_save_world_info, rename_save, scan_index,
+    soft_delete_save, touch_last_played,
 };
-use crate::types::{LoadedSave, SaveId, SaveMeta, SaveRootDir};
+use crate::types::{LoadedSave, SaveId, SaveMeta, SaveRootDir, SaveWorldInfo};
 
 /// 存档索引。
 #[derive(Resource, Debug, Default, Clone)]
@@ -41,6 +41,18 @@ pub enum SaveOpResult {
     Copied { meta: SaveMeta },
     Renamed { meta: SaveMeta },
     Deleted { id: SaveId },
+    Failed { message: String },
+}
+
+
+#[derive(Message, Debug, Clone)]
+pub struct SaveInfoRequest {
+    pub id: SaveId,
+}
+
+#[derive(Message, Debug, Clone)]
+pub enum SaveInfoResult {
+    Loaded { info: SaveWorldInfo },
     Failed { message: String },
 }
 
@@ -72,6 +84,9 @@ struct OpTask(Task<io::Result<SaveOpTaskResult>>);
 #[derive(Resource)]
 struct LoadTask(Task<LoadTaskResult>);
 
+#[derive(Resource)]
+struct InfoTask(Task<io::Result<SaveWorldInfo>>);
+
 type LoadTaskResult = Result<(SaveMeta, u64), (String, u64)>;
 
 #[derive(Debug)]
@@ -91,6 +106,8 @@ impl Plugin for SavePlugin {
             .add_message::<SaveOpResult>()
             .add_message::<SaveLoadRequest>()
             .add_message::<SaveLoadResult>()
+            .add_message::<SaveInfoRequest>()
+            .add_message::<SaveInfoResult>()
             .init_resource::<SaveRootDir>()
             .init_resource::<SaveIndex>()
             .init_resource::<SaveIndexReady>()
@@ -104,6 +121,8 @@ impl Plugin for SavePlugin {
                     poll_scan_index,
                     start_save_ops.run_if(in_state(AppState::FrontEnd)),
                     poll_save_ops.run_if(in_state(AppState::FrontEnd)),
+                    start_save_info.run_if(in_state(AppState::FrontEnd)),
+                    poll_save_info.run_if(in_state(AppState::FrontEnd)),
                     start_save_loads.run_if(in_state(AppState::InGame)),
                     poll_save_loads.run_if(in_state(AppState::InGame)),
                     handle_in_game_load_results.run_if(in_state(InGameState::Loading)),
@@ -240,6 +259,49 @@ fn poll_save_ops(
             Err(err) => {
                 results.write(SaveOpResult::Failed {
                     message: format!("save op failed: {err}"),
+                });
+            }
+        }
+    }
+}
+
+
+fn start_save_info(
+    mut commands: Commands,
+    root: Res<SaveRootDir>,
+    mut requests: MessageReader<SaveInfoRequest>,
+    existing_task: Option<Res<InfoTask>>,
+) {
+    let Some(request) = requests.read().last().cloned() else {
+        return;
+    };
+    if existing_task.is_some() {
+        return;
+    }
+
+    let root_dir = root.0.clone();
+    let task = IoTaskPool::get().spawn(async move { read_save_world_info(&root_dir, &request.id) });
+    commands.insert_resource(InfoTask(task));
+}
+
+fn poll_save_info(
+    mut commands: Commands,
+    mut results: MessageWriter<SaveInfoResult>,
+    mut task: Option<ResMut<InfoTask>>,
+) {
+    let Some(task) = task.as_mut() else {
+        return;
+    };
+
+    if let Some(result) = future::block_on(poll_once(&mut task.0)) {
+        commands.remove_resource::<InfoTask>();
+        match result {
+            Ok(info) => {
+                results.write(SaveInfoResult::Loaded { info });
+            }
+            Err(err) => {
+                results.write(SaveInfoResult::Failed {
+                    message: format!("load save info failed: {err}"),
                 });
             }
         }
