@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use bevy::prelude::*;
 
-use cruft_game_flow::{AppState, BootReadiness, BootReady};
+use cruft_game_flow::{
+    AppState, BootReadiness, BootReady, FlowRequest, GameStartKind, InGameState,
+    PendingGameStart,
+};
 
 use crate::types::{LoadedSave, SaveId, SaveMeta};
 
@@ -51,6 +54,9 @@ pub enum SaveLoadResult {
 #[derive(Resource, Debug, Default, Clone)]
 pub struct CurrentSave(pub Option<LoadedSave>);
 
+#[derive(Resource, Debug, Clone, Copy)]
+struct ActiveLoadGeneration(pub u64);
+
 pub struct SavePlugin;
 
 impl Plugin for SavePlugin {
@@ -63,11 +69,13 @@ impl Plugin for SavePlugin {
             .init_resource::<SaveIndexReady>()
             .init_resource::<CurrentSave>()
             .add_systems(OnEnter(AppState::BootLoading), mark_index_ready)
+            .add_systems(OnEnter(InGameState::Loading), start_in_game_loading)
             .add_systems(OnExit(AppState::InGame), clear_current_save)
             .add_systems(
                 Update,
                 (
                     drain_ops.run_if(in_state(AppState::FrontEnd)),
+                    handle_in_game_load_results.run_if(in_state(InGameState::Loading)),
                     drain_loads.run_if(in_state(AppState::InGame)),
                 ),
             );
@@ -94,6 +102,46 @@ fn drain_ops(mut requests: MessageReader<SaveOpRequest>, mut results: MessageWri
     }
 }
 
+fn start_in_game_loading(
+    mut commands: Commands,
+    pending: Option<Res<PendingGameStart>>,
+    mut load_requests: MessageWriter<SaveLoadRequest>,
+    mut load_results: MessageWriter<SaveLoadResult>,
+) {
+    let Some(pending) = pending else {
+        return;
+    };
+
+    let generation = pending.generation;
+    match &pending.kind {
+        GameStartKind::LoadSave(id) => {
+            load_requests.write(SaveLoadRequest {
+                id: SaveId(id.clone()),
+                generation,
+            });
+        }
+        GameStartKind::NewSave { display_name } => {
+            let save_id = format!("new-{}", generation);
+            let loaded = LoadedSave {
+                meta: SaveMeta {
+                    id: save_id.clone(),
+                    display_name: display_name.clone(),
+                    created_at: 0,
+                    last_played_at: 0,
+                    format_version: 1,
+                },
+            };
+            load_results.write(SaveLoadResult::Loaded {
+                save: loaded,
+                generation,
+            });
+        }
+    }
+
+    commands.insert_resource(ActiveLoadGeneration(generation));
+    commands.remove_resource::<PendingGameStart>();
+}
+
 fn drain_loads(
     mut requests: MessageReader<SaveLoadRequest>,
     mut results: MessageWriter<SaveLoadResult>,
@@ -107,7 +155,39 @@ fn drain_loads(
     }
 }
 
-fn clear_current_save(mut current: ResMut<CurrentSave>) {
+fn handle_in_game_load_results(
+    mut commands: Commands,
+    active_generation: Option<Res<ActiveLoadGeneration>>,
+    mut current_save: ResMut<CurrentSave>,
+    mut results: MessageReader<SaveLoadResult>,
+    mut flow: MessageWriter<FlowRequest>,
+) {
+    let Some(active_generation) = active_generation else {
+        return;
+    };
+    let expected_generation = active_generation.0;
+
+    for msg in results.read() {
+        match msg {
+            SaveLoadResult::Loaded { save, generation } if *generation == expected_generation => {
+                current_save.0 = Some(save.clone());
+                flow.write(FlowRequest::FinishGameLoading);
+                commands.remove_resource::<ActiveLoadGeneration>();
+            }
+            SaveLoadResult::Failed {
+                generation,
+                message: _,
+            } if *generation == expected_generation => {
+                flow.write(FlowRequest::QuitToMainMenu);
+                commands.remove_resource::<ActiveLoadGeneration>();
+            }
+            _ => {}
+        }
+    }
+}
+
+fn clear_current_save(mut commands: Commands, mut current: ResMut<CurrentSave>) {
     // “退出存档后清空”：任何从 InGame 离开都清空会话存档。
     current.0 = None;
+    commands.remove_resource::<ActiveLoadGeneration>();
 }

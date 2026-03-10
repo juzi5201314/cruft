@@ -6,7 +6,7 @@ use bevy::render::extract_component::ExtractComponent;
 use bevy::render::extract_resource::ExtractResource;
 use bevy::tasks::{futures_lite::future, poll_once, AsyncComputeTaskPool, Task};
 
-use cruft_game_flow::{AppState, FlowRequest, GameStartKind, InGameState, PendingGameStart};
+use cruft_game_flow::{AppState, FlowRequest, InGameState};
 
 use crate::blocks::BlockDefs;
 use crate::coords::ChunkKey;
@@ -206,8 +206,6 @@ fn start_voxel_loading(
     mut world: ResMut<VoxelWorld>,
     mut arena: ResMut<VoxelQuadArena>,
     mut store: ResMut<VoxelQuadStore>,
-    pending: Option<Res<PendingGameStart>>,
-    mut commands: Commands,
 ) {
     *phase = VoxelPhase::Loading;
 
@@ -220,15 +218,6 @@ fn start_voxel_loading(
     tracker.required.clear();
     tracker.completed.clear();
     tracker.finished = false;
-
-    // 用 PendingGameStart 的 generation + display_name 生成确定性 seed。
-    if let Some(pending) = pending {
-        if let GameStartKind::NewSave { display_name } = &pending.kind {
-            world.terrain.seed = fnv1a64(display_name.as_bytes())
-                ^ (pending.generation as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
-        }
-        commands.remove_resource::<PendingGameStart>();
-    }
 
     let _ = &config;
     // required/completed 由 Update 阶段按实时 VoxelCenter 维护（避免“中心点更新后 required 永远达不成”）。
@@ -571,13 +560,4 @@ fn ensure_generated_chunk(storage: &Storage, terrain: &Terrain, key: ChunkKey) {
     chunk.fill_terrain_heightmap(base.y, &heights);
     // 生成只做一次；保持 generation，用于后续 meshing。
     chunk.clear_dirty();
-}
-
-fn fnv1a64(bytes: &[u8]) -> u64 {
-    let mut h = 0xcbf29ce484222325u64;
-    for &b in bytes {
-        h ^= b as u64;
-        h = h.wrapping_mul(0x100000001b3);
-    }
-    h
 }
