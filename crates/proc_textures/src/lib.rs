@@ -2,4 +2,6 @@
 
 mod plugin;
 
-pub use plugin::{BlockTextureArray, ProcTexturesPlugin, ProcTexturesReady};
+pub use plugin::{
+    BlockTextureArray, ProcTexturesPlugin, ProcTexturesReady, ProcTexturesStatus, TextureRegistry,
+};

@@ -7,6 +7,7 @@ use bevy::render::extract_resource::ExtractResource;
 use bevy::tasks::{futures_lite::future, poll_once, AsyncComputeTaskPool, Task};
 
 use cruft_game_flow::{AppState, FlowRequest, InGameState};
+use cruft_proc_textures::TextureRegistry;
 
 use crate::blocks::BlockDefs;
 use crate::coords::ChunkKey;
@@ -202,6 +203,7 @@ impl Plugin for VoxelPlugin {
 fn start_voxel_loading(
     mut phase: ResMut<VoxelPhase>,
     config: Res<VoxelConfig>,
+    texture_registry: Option<Res<TextureRegistry>>,
     mut tracker: ResMut<VoxelLoadingTracker>,
     mut world: ResMut<VoxelWorld>,
     mut arena: ResMut<VoxelQuadArena>,
@@ -219,6 +221,13 @@ fn start_voxel_loading(
     tracker.completed.clear();
     tracker.finished = false;
 
+
+    if let Some(texture_registry) = texture_registry {
+        match BlockDefs::from_registry(&texture_registry) {
+            Ok(defs) => world.defs = defs,
+            Err(message) => log::error!("Failed to resolve BlockDefs from texture registry: {message}"),
+        }
+    }
     let _ = &config;
     // required/completed 由 Update 阶段按实时 VoxelCenter 维护（避免“中心点更新后 required 永远达不成”）。
     tracker.required.clear();

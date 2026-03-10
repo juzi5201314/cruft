@@ -1,3 +1,5 @@
+// Current production style: minecraft_quantized (4-color palette quantization).
+// Other styles are planned in schema/data, but not implemented in shader yet.
 const MAX_LAYERS: u32 = 256u;
 
 struct LayerParams {

@@ -21,7 +21,7 @@
 
 ## Gotchas
 
-- `crates/app/src/plugins/procedural_texture.rs` 与 `crates/proc_textures/` 存在重复实现；运行时主路径以 `crates/proc_textures/` 为准（见 `crates/app/src/main.rs`）。
+- legacy procedural texture 示例已移除；运行时主路径仅保留 `crates/proc_textures/`（见 `crates/app/src/main.rs`）。
 
 ## Commands
 
