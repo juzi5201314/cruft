@@ -14,6 +14,12 @@ impl SaveRootDir {
     }
 }
 
+impl Default for SaveRootDir {
+    fn default() -> Self {
+        Self(Self::default_path())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SaveId(pub String);
 
