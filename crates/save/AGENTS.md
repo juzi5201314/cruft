@@ -11,7 +11,7 @@
 | 任务 | 位置 | 说明 |
 |---|---|---|
 | 插件/消息类型/系统集 | `crates/save/src/api.rs` | `SavePlugin`、`SaveOp*`、`SaveLoad*`、`SaveSet` |
-| IO 实现/磁盘格式 | `crates/save/src/io.rs` | 实际 scan/create/copy/rename/delete/load；当前格式仍是 v1 |
+| IO 实现/磁盘格式 | `crates/save/src/io.rs` | 单文件数据库存档（`saves.redb`，redb + postcard + zstd） |
 | 类型 | `crates/save/src/types.rs` | `SaveRootDir`、`SaveId`、`SaveMeta`、`LoadedSave` |
 
 ## Conventions
@@ -30,4 +30,4 @@
 
 ## Gotchas
 
-- `docs/voxel/persistence.md` 规定世界格式 v2；当前 `crates/save/src/io.rs` 仍是 v1（不要在这里引入“第三套格式”，迁移应以 voxel spec 为准）。
+- `docs/voxel/persistence.md` 规定世界格式 v2；当前 `crates/save/src/io.rs` 为过渡期单文件格式，后续迁移仍应以 voxel spec 为准。
