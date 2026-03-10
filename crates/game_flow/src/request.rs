@@ -120,23 +120,7 @@ pub fn apply_flow_requests(
         generation: gen.0,
     };
 
-    let mut merged = FlowActions::default();
-    for req in requests.read() {
-        let a = reduce(snapshot, req);
-        if a.set_app.is_some() {
-            merged.set_app = a.set_app;
-        }
-        if a.set_frontend.is_some() {
-            merged.set_frontend = a.set_frontend;
-        }
-        if a.set_ingame.is_some() {
-            merged.set_ingame = a.set_ingame;
-        }
-        if a.start_game.is_some() {
-            merged.start_game = a.start_game;
-        }
-        merged.bump_generation |= a.bump_generation;
-    }
+    let merged = resolve_requests(snapshot, requests.read());
 
     if merged.bump_generation {
         gen.0 = gen.0.saturating_add(1);
@@ -161,6 +145,66 @@ pub fn apply_flow_requests(
         if let Some(ref mut next) = next_ingame {
             next.set(s);
         }
+    }
+}
+
+fn resolve_requests<'a>(snapshot: FlowSnapshot, requests: impl IntoIterator<Item = &'a FlowRequest>) -> FlowActions {
+    let mut current_snapshot = snapshot;
+    let mut merged = FlowActions::default();
+
+    for req in requests {
+        let a = reduce(current_snapshot, req);
+        if a.set_app.is_some() {
+            merged.set_app = a.set_app;
+            if merged.set_app != Some(AppState::InGame) {
+                merged.start_game = None;
+            }
+        }
+        if a.set_frontend.is_some() {
+            merged.set_frontend = a.set_frontend;
+        }
+        if a.set_ingame.is_some() {
+            merged.set_ingame = a.set_ingame;
+        }
+        if a.start_game.is_some() {
+            merged.start_game = a.start_game;
+        }
+        apply_actions(&mut current_snapshot, &a);
+
+        if current_snapshot.app != AppState::InGame {
+            merged.start_game = None;
+        }
+    }
+
+    merged.bump_generation = merged.start_game.is_some();
+    merged
+}
+
+fn apply_actions(snapshot: &mut FlowSnapshot, actions: &FlowActions) {
+    if let Some(app) = actions.set_app {
+        snapshot.app = app;
+        match app {
+            AppState::BootLoading => {
+                snapshot.frontend = None;
+                snapshot.ingame = None;
+            }
+            AppState::FrontEnd => {
+                snapshot.frontend = Some(FrontEndState::default());
+                snapshot.ingame = None;
+            }
+            AppState::InGame => {
+                snapshot.frontend = None;
+                snapshot.ingame = Some(InGameState::default());
+            }
+        }
+    }
+
+    if let Some(frontend) = actions.set_frontend {
+        snapshot.frontend = Some(frontend);
+    }
+
+    if let Some(ingame) = actions.set_ingame {
+        snapshot.ingame = Some(ingame);
     }
 }
 
@@ -208,5 +252,47 @@ mod tests {
         let s = snap(AppState::InGame, None, Some(InGameState::Playing), 0);
         let a = reduce(s, &FlowRequest::TogglePause);
         assert_eq!(a.set_ingame, Some(InGameState::Paused));
+    }
+
+    #[test]
+    fn enter_frontend_then_enter_save_select_uses_updated_snapshot() {
+        let s = snap(AppState::BootLoading, None, None, 0);
+        let requests = [FlowRequest::EnterFrontEnd, FlowRequest::EnterSaveSelect];
+
+        let a = resolve_requests(s, requests.iter());
+
+        assert_eq!(a.set_app, Some(AppState::FrontEnd));
+        assert_eq!(a.set_frontend, Some(FrontEndState::SaveSelect));
+    }
+
+    #[test]
+    fn start_load_then_quit_to_main_menu_clears_pending_start() {
+        let s = snap(
+            AppState::FrontEnd,
+            Some(FrontEndState::SaveSelect),
+            None,
+            7,
+        );
+        let requests = [
+            FlowRequest::StartLoadSave("slot-1".into()),
+            FlowRequest::QuitToMainMenu,
+        ];
+
+        let a = resolve_requests(s, requests.iter());
+
+        assert_eq!(a.set_app, Some(AppState::FrontEnd));
+        assert_eq!(a.set_frontend, Some(FrontEndState::MainMenu));
+        assert!(a.start_game.is_none());
+        assert!(!a.bump_generation);
+    }
+
+    #[test]
+    fn toggle_pause_then_resume_results_in_playing() {
+        let s = snap(AppState::InGame, None, Some(InGameState::Playing), 0);
+        let requests = [FlowRequest::TogglePause, FlowRequest::Resume];
+
+        let a = resolve_requests(s, requests.iter());
+
+        assert_eq!(a.set_ingame, Some(InGameState::Playing));
     }
 }
