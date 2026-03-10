@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy::state::state_scoped::DespawnOnExit;
 
 use cruft_game_flow::{FlowRequest, FrontEndState};
-use cruft_save::{SaveIndex, SaveOpRequest, SaveOpResult};
+use cruft_save::{SaveId, SaveIndex, SaveOpRequest, SaveOpResult};
 use cruft_ui::ui::{UiBuilder, UiEntityCommandsExt};
 
 use crate::common::spawn_grid_background;
@@ -480,9 +480,9 @@ fn on_load_clicked(
     state: Res<SaveSelectState>,
     mut flow: MessageWriter<FlowRequest>,
 ) {
-    let _ = state;
-    let _ = &mut flow;
-    // TODO(voxel): 本阶段只支持 New；Load 暂不实现（内存存档占位）。
+    if let Some(selected_id) = state.selected.as_ref() {
+        flow.write(FlowRequest::StartLoadSave(selected_id.clone()));
+    }
 }
 
 fn on_new_clicked(_ev: On<cruft_ui::UiClick>, mut state: ResMut<SaveSelectState>) {
@@ -490,8 +490,9 @@ fn on_new_clicked(_ev: On<cruft_ui::UiClick>, mut state: ResMut<SaveSelectState>
 }
 
 fn on_rename_clicked(_ev: On<cruft_ui::UiClick>, mut state: ResMut<SaveSelectState>) {
-    let _ = &mut state;
-    // TODO(voxel): 暂不实现 Rename。
+    if state.selected.is_some() {
+        state.modal = Some(ModalKind::Rename);
+    }
 }
 
 fn on_copy_clicked(
@@ -499,14 +500,17 @@ fn on_copy_clicked(
     state: Res<SaveSelectState>,
     mut ops: MessageWriter<SaveOpRequest>,
 ) {
-    let _ = state;
-    let _ = &mut ops;
-    // TODO(voxel): 暂不实现 Copy。
+    if let Some(selected_id) = state.selected.as_ref() {
+        ops.write(SaveOpRequest::Copy {
+            id: SaveId(selected_id.clone()),
+        });
+    }
 }
 
 fn on_delete_clicked(_ev: On<cruft_ui::UiClick>, mut state: ResMut<SaveSelectState>) {
-    let _ = &mut state;
-    // TODO(voxel): 暂不实现 Delete。
+    if state.selected.is_some() {
+        state.modal = Some(ModalKind::ConfirmDelete);
+    }
 }
 
 fn on_back_clicked(_ev: On<cruft_ui::UiClick>, mut flow: MessageWriter<FlowRequest>) {
@@ -569,9 +573,17 @@ fn on_rename_confirm_clicked(
     mut state: ResMut<SaveSelectState>,
     inputs: Query<&cruft_ui::UiTextInput, With<SaveSelectModalTextInput>>,
 ) {
-    let _ = inputs;
-    let _ = &mut ops;
-    // TODO(voxel): 暂不实现 Rename。
+    let Some(selected_id) = state.selected.as_ref() else {
+        return;
+    };
+    let Some(new_name) = read_modal_input(&inputs) else {
+        return;
+    };
+
+    ops.write(SaveOpRequest::Rename {
+        id: SaveId(selected_id.clone()),
+        new_name,
+    });
     state.modal = None;
 }
 
@@ -581,10 +593,21 @@ fn on_rename_submit(
     mut state: ResMut<SaveSelectState>,
     inputs: Query<&cruft_ui::UiTextInput>,
 ) {
-    let _ = ev;
-    let _ = inputs;
-    let _ = &mut ops;
-    // TODO(voxel): 暂不实现 Rename。
+    let Some(selected_id) = state.selected.as_ref() else {
+        return;
+    };
+    let Ok(input) = inputs.get(ev.entity) else {
+        return;
+    };
+    let new_name = input.value.trim().to_string();
+    if new_name.is_empty() {
+        return;
+    }
+
+    ops.write(SaveOpRequest::Rename {
+        id: SaveId(selected_id.clone()),
+        new_name,
+    });
     state.modal = None;
 }
 
@@ -593,8 +616,11 @@ fn on_delete_confirm_clicked(
     mut ops: MessageWriter<SaveOpRequest>,
     mut state: ResMut<SaveSelectState>,
 ) {
-    let _ = &mut ops;
-    // TODO(voxel): 暂不实现 Delete。
+    if let Some(selected_id) = state.selected.as_ref() {
+        ops.write(SaveOpRequest::Delete {
+            id: SaveId(selected_id.clone()),
+        });
+    }
     state.modal = None;
 }
 
@@ -610,6 +636,11 @@ fn handle_save_results(
             SaveOpResult::Deleted { id } => {
                 if state.selected.as_deref() == Some(id.0.as_str()) {
                     state.selected = None;
+                }
+            }
+            SaveOpResult::Renamed { meta } => {
+                if state.selected.as_deref() == Some(meta.id.as_str()) {
+                    state.selected = Some(meta.id.clone());
                 }
             }
             _ => {}
