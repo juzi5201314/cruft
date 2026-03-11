@@ -82,6 +82,18 @@ just dev
 just test
 ```
 
+如果在 WSL 下偶发看到
+`UtilAcceptVsock: accept4 failed 110` 这类 vsock/interop 超时，
+默认并发测试可能会表现为 flaky。此时优先使用仓库内置的
+保守 profile 复跑：
+
+```bash
+just test --profile wsl-stable
+```
+
+这个 profile 只用于 WSL 环境兜底：它会降低 nextest 并发并
+启用有限重试，不会改变默认 `just test` 的行为。
+
 ## 许可证
 
 MIT / Apache-2.0
