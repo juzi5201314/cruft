@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -637,6 +637,17 @@ fn default_color_mapping() -> ColorMappingSpec {
     }
 }
 
+fn identity_scalar_remap() -> ScalarRemapSpec {
+    ScalarRemapSpec {
+        range: [0.0, 1.0],
+        contrast: 1.0,
+        bias: 0.0,
+        invert: false,
+        curve: default_curve(),
+        clamp: [0.0, 1.0],
+    }
+}
+
 pub fn load_and_compile_texture_set(
     path: impl AsRef<Path>,
 ) -> Result<CompiledTextureSet, TextureDataError> {
@@ -697,12 +708,13 @@ fn compile_raw_texture_set(
         );
     }
 
+    let canonical_surfaces = canonicalize_surfaces(&path, &surfaces)?;
     let canonical_value = serde_json::to_value(CanonicalTextureSetData {
         spec: raw.spec.clone(),
         spec_version: raw.spec_version.clone(),
         profile: raw.profile.clone(),
         output: output.clone(),
-        surfaces: surfaces.clone(),
+        surfaces: canonical_surfaces,
         textures: textures.clone(),
         extensions_used: raw.extensions_used.clone(),
         extensions: raw.extensions.clone(),
@@ -815,6 +827,209 @@ fn validate_top_level(path: &Path, raw: &RawTextureSet) -> Result<(), TextureDat
         ));
     }
     Ok(())
+}
+
+fn canonicalize_surfaces(
+    path: &Path,
+    surfaces: &BTreeMap<String, CompiledSurface>,
+) -> Result<BTreeMap<String, CompiledSurface>, TextureDataError> {
+    let mut canonical = BTreeMap::new();
+    for (name, surface) in surfaces {
+        canonical.insert(name.clone(), canonicalize_surface(path, name, surface)?);
+    }
+    Ok(canonical)
+}
+
+fn canonicalize_surface(
+    path: &Path,
+    name: &str,
+    surface: &CompiledSurface,
+) -> Result<CompiledSurface, TextureDataError> {
+    let mut surface = surface.clone();
+    let mut generated_signals = Vec::new();
+    let mut used_names = surface.signals.keys().cloned().collect::<BTreeSet<_>>();
+    let mut inline_index = 0u32;
+
+    for signal in surface.signals.values_mut() {
+        expand_signal_inline_noise(
+            signal,
+            &mut generated_signals,
+            &mut used_names,
+            &mut inline_index,
+        );
+    }
+    expand_layer_fields_inline_noise(
+        &mut surface.base,
+        &mut generated_signals,
+        &mut used_names,
+        &mut inline_index,
+    );
+    for layer in &mut surface.layers {
+        expand_mask_inline_noise(
+            &mut layer.mask,
+            &mut generated_signals,
+            &mut used_names,
+            &mut inline_index,
+        );
+        expand_partial_layer_fields_inline_noise(
+            &mut layer.fields,
+            &mut generated_signals,
+            &mut used_names,
+            &mut inline_index,
+        );
+    }
+
+    for (signal_name, signal) in generated_signals {
+        surface.signals.insert(signal_name, signal);
+    }
+    surface.signal_order = topo_sort_signals(path, name, &surface.signals)?;
+    Ok(surface)
+}
+
+fn expand_signal_inline_noise(
+    signal: &mut CompiledSignal,
+    generated_signals: &mut Vec<(String, CompiledSignal)>,
+    used_names: &mut BTreeSet<String>,
+    inline_index: &mut u32,
+) {
+    if let CompiledSignalKind::Mask { mask } = &mut signal.kind {
+        expand_mask_inline_noise(mask, generated_signals, used_names, inline_index);
+    }
+}
+
+fn expand_layer_fields_inline_noise(
+    fields: &mut CompiledLayerFields,
+    generated_signals: &mut Vec<(String, CompiledSignal)>,
+    used_names: &mut BTreeSet<String>,
+    inline_index: &mut u32,
+) {
+    expand_color_field_inline_noise(
+        &mut fields.albedo,
+        generated_signals,
+        used_names,
+        inline_index,
+    );
+    if let Some(field) = &mut fields.height {
+        expand_scalar_field_inline_noise(field, generated_signals, used_names, inline_index);
+    }
+    if let Some(field) = &mut fields.roughness {
+        expand_scalar_field_inline_noise(field, generated_signals, used_names, inline_index);
+    }
+    if let Some(field) = &mut fields.ao {
+        expand_scalar_field_inline_noise(field, generated_signals, used_names, inline_index);
+    }
+    if let Some(field) = &mut fields.metallic {
+        expand_scalar_field_inline_noise(field, generated_signals, used_names, inline_index);
+    }
+    if let Some(field) = &mut fields.emissive {
+        expand_color_field_inline_noise(field, generated_signals, used_names, inline_index);
+    }
+    if let Some(field) = &mut fields.opacity {
+        expand_scalar_field_inline_noise(field, generated_signals, used_names, inline_index);
+    }
+}
+
+fn expand_partial_layer_fields_inline_noise(
+    fields: &mut PartialLayerFields,
+    generated_signals: &mut Vec<(String, CompiledSignal)>,
+    used_names: &mut BTreeSet<String>,
+    inline_index: &mut u32,
+) {
+    if let Some(field) = &mut fields.albedo {
+        expand_color_field_inline_noise(field, generated_signals, used_names, inline_index);
+    }
+    if let Some(field) = &mut fields.height {
+        expand_scalar_field_inline_noise(field, generated_signals, used_names, inline_index);
+    }
+    if let Some(field) = &mut fields.roughness {
+        expand_scalar_field_inline_noise(field, generated_signals, used_names, inline_index);
+    }
+    if let Some(field) = &mut fields.ao {
+        expand_scalar_field_inline_noise(field, generated_signals, used_names, inline_index);
+    }
+    if let Some(field) = &mut fields.metallic {
+        expand_scalar_field_inline_noise(field, generated_signals, used_names, inline_index);
+    }
+    if let Some(field) = &mut fields.emissive {
+        expand_color_field_inline_noise(field, generated_signals, used_names, inline_index);
+    }
+    if let Some(field) = &mut fields.opacity {
+        expand_scalar_field_inline_noise(field, generated_signals, used_names, inline_index);
+    }
+}
+
+fn expand_color_field_inline_noise(
+    field: &mut CompiledColorField,
+    generated_signals: &mut Vec<(String, CompiledSignal)>,
+    used_names: &mut BTreeSet<String>,
+    inline_index: &mut u32,
+) {
+    if let ColorFieldSource::InlineNoise(noise) = &field.source {
+        let signal_name = next_inline_signal_name(used_names, inline_index);
+        generated_signals.push((signal_name.clone(), inline_noise_signal(noise.clone())));
+        field.source = ColorFieldSource::Signal(signal_name);
+    }
+}
+
+fn expand_scalar_field_inline_noise(
+    field: &mut CompiledScalarField,
+    generated_signals: &mut Vec<(String, CompiledSignal)>,
+    used_names: &mut BTreeSet<String>,
+    inline_index: &mut u32,
+) {
+    if let ScalarFieldSource::InlineNoise(noise) = &field.source {
+        let signal_name = next_inline_signal_name(used_names, inline_index);
+        generated_signals.push((signal_name.clone(), inline_noise_signal(noise.clone())));
+        field.source = ScalarFieldSource::Signal(signal_name);
+    }
+}
+
+fn expand_mask_inline_noise(
+    mask: &mut MaskSpec,
+    generated_signals: &mut Vec<(String, CompiledSignal)>,
+    used_names: &mut BTreeSet<String>,
+    inline_index: &mut u32,
+) {
+    match mask {
+        MaskSpec::Threshold { source, .. } => {
+            if let ThresholdSource::InlineNoise(noise) = source {
+                let signal_name = next_inline_signal_name(used_names, inline_index);
+                generated_signals.push((signal_name.clone(), inline_noise_signal(noise.clone())));
+                *source = ThresholdSource::Signal(signal_name);
+            }
+        }
+        MaskSpec::And { items } | MaskSpec::Or { items } | MaskSpec::Subtract { items } => {
+            for item in items {
+                expand_mask_inline_noise(item, generated_signals, used_names, inline_index);
+            }
+        }
+        MaskSpec::Not { item } => {
+            expand_mask_inline_noise(item, generated_signals, used_names, inline_index);
+        }
+        MaskSpec::Full
+        | MaskSpec::Signal { .. }
+        | MaskSpec::AxisBand { .. }
+        | MaskSpec::EdgeDistance { .. } => {}
+    }
+}
+
+fn next_inline_signal_name(used_names: &mut BTreeSet<String>, inline_index: &mut u32) -> String {
+    loop {
+        *inline_index += 1;
+        let candidate = format!("__inline_noise_{:04}", *inline_index);
+        if used_names.insert(candidate.clone()) {
+            return candidate;
+        }
+    }
+}
+
+fn inline_noise_signal(noise: NoiseSpec) -> CompiledSignal {
+    CompiledSignal {
+        kind: CompiledSignalKind::Noise {
+            noise,
+            remap: identity_scalar_remap(),
+        },
+    }
 }
 
 fn compile_output(path: &Path, raw: &RawOutput) -> Result<OutputSpec, TextureDataError> {
@@ -1002,6 +1217,15 @@ fn compile_surface(
         )?);
     }
 
+    if normal.mode == NormalMode::DeriveFromHeight && !surface_has_effective_height(&base, &layers)
+    {
+        return Err(TextureDataError::validate(
+            path,
+            format!("surfaces.{name}.normal"),
+            "derive_from_height requires a composed height channel",
+        ));
+    }
+
     Ok(CompiledSurface {
         logical_size,
         pixel_snap,
@@ -1014,6 +1238,13 @@ fn compile_surface(
         layers,
         normal,
     })
+}
+
+fn surface_has_effective_height(base: &CompiledLayerFields, layers: &[CompiledLayer]) -> bool {
+    base.height.is_some()
+        || layers
+            .iter()
+            .any(|layer| layer.strength > 0.0 && layer.fields.height.is_some())
 }
 
 fn compile_texture(
@@ -2714,5 +2945,106 @@ mod tests {
         assert_eq!(compiled.output.size, 64);
         assert!(compiled.textures.contains_key("dirt_block"));
         assert!(!compiled.canonical.json.is_empty());
+    }
+
+    #[test]
+    fn derive_from_height_requires_composed_height_channel() {
+        let bytes = br##"{
+          "spec": "cruft.procedural_texture",
+          "spec_version": "1.0.0",
+          "profile": "voxel_cube_pbr",
+          "output": {"size": 16},
+          "surfaces": {
+            "stone": {
+              "normal": {"mode": "derive_from_height"},
+              "base": {
+                "albedo": {
+                  "mode": "constant",
+                  "value": "#808080"
+                }
+              }
+            }
+          },
+          "textures": {
+            "stone_block": {
+              "faces": {
+                "all": "stone"
+              }
+            }
+          }
+        }"##;
+        let error = compile_texture_set("/tmp/test.texture.json", bytes).expect_err("must fail");
+
+        assert_eq!(error.path.as_deref(), Some("surfaces.stone.normal"));
+        assert!(error.message.contains("requires a composed height channel"));
+    }
+
+    #[test]
+    fn canonical_form_expands_inline_noise_shorthand() {
+        let bytes = br##"{
+          "spec": "cruft.procedural_texture",
+          "spec_version": "1.0.0",
+          "profile": "voxel_cube_pbr",
+          "output": {"size": 16},
+          "surfaces": {
+            "stone": {
+              "base": {
+                "albedo": {
+                  "mode": "palette",
+                  "noise": {
+                    "basis": "value",
+                    "fractal": "none",
+                    "scale": 1.0,
+                    "octaves": 1
+                  },
+                  "palette": ["#404040", "#808080"]
+                },
+                "height": {
+                  "mode": "noise",
+                  "noise": {
+                    "basis": "gradient",
+                    "fractal": "none",
+                    "scale": 1.0,
+                    "octaves": 1
+                  }
+                }
+              },
+              "layers": [
+                {
+                  "mask": {
+                    "mode": "threshold",
+                    "noise": {
+                      "basis": "value",
+                      "fractal": "none",
+                      "scale": 2.0,
+                      "octaves": 1
+                    },
+                    "threshold": 0.5
+                  },
+                  "height": {
+                    "mode": "noise",
+                    "noise": {
+                      "basis": "value",
+                      "fractal": "none",
+                      "scale": 3.0,
+                      "octaves": 1
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "textures": {
+            "stone_block": {
+              "faces": {
+                "all": "stone"
+              }
+            }
+          }
+        }"##;
+        let compiled = compile_texture_set("/tmp/test.texture.json", bytes).expect("must compile");
+
+        assert!(!compiled.canonical.json.contains("InlineNoise"));
+        assert!(compiled.canonical.json.contains("__inline_noise_"));
     }
 }
