@@ -158,6 +158,7 @@ fn resolve_requests<'a>(snapshot: FlowSnapshot, requests: impl IntoIterator<Item
 
     for req in requests {
         let a = reduce(current_snapshot, req);
+        let start_game = a.start_game.clone();
         if a.set_app.is_some() {
             merged.set_app = a.set_app;
             if merged.set_app != Some(AppState::InGame) {
@@ -170,8 +171,8 @@ fn resolve_requests<'a>(snapshot: FlowSnapshot, requests: impl IntoIterator<Item
         if a.set_ingame.is_some() {
             merged.set_ingame = a.set_ingame;
         }
-        if a.start_game.is_some() {
-            merged.start_game = a.start_game;
+        if start_game.is_some() {
+            merged.start_game = start_game;
         }
         apply_actions(&mut current_snapshot, &a);
 
