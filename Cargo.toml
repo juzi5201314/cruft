@@ -39,8 +39,16 @@ noise = "0.9"
 [profile.dev]
 opt-level = 1
 codegen-backend = "cranelift"
+debug = "line-tables-only"
 
 # Enable a large amount of optimization in the dev profile for dependencies.
 [profile.dev.package."*"]
 opt-level = 3
 codegen-backend = "llvm"
+debug = false
+
+[profile.test]
+debug = "line-tables-only"
+
+[profile.test.package."*"]
+debug = false
