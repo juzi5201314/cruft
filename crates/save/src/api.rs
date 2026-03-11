@@ -2,8 +2,10 @@ use std::cmp::Reverse;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use bevy::prelude::*;
-use bevy::tasks::{futures_lite::future, poll_once, IoTaskPool, Task};
+use bevy_app::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_state::prelude::*;
+use bevy_tasks::{futures_lite::future, poll_once, IoTaskPool, Task};
 
 use cruft_game_flow::{
     AppState, BootReadiness, BootReady, FlowRequest, GameStartGeneration, GameStartKind,

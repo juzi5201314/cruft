@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 use cruft_worldgen_spec::WorldHeaderV2;
 use serde::{Deserialize, Serialize};
 
