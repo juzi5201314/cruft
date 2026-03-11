@@ -43,7 +43,9 @@ cruft/
 just dev
 ```
 
-`dev` 在 WSL 环境下会使用 `x86_64-pc-windows-gnu` target，非 WSL 环境使用本机默认 target；并设置 `CRUFT_SAVE_DIR=./.dev/run`。
+`dev` / `dev-release` 在 WSL 环境下会使用 `x86_64-pc-windows-gnu` target，便于从 WSL 调试 Windows 渲染路径；其余 `just build` / `just test` / `just check` / `just clippy` 默认使用本机 native target。开发运行仍会设置 `CRUFT_SAVE_DIR=./.dev/run`。
+
+注意：native `build` / `test` / `check` / `clippy` 通过，只能说明本机 target 通过校验；如果改动涉及窗口、输入、渲染、平台行为，仍需要额外用 `just dev` 或 `just dev-release` 验证 Windows 运行路径。
 
 启动后将显示一个测试场景，展示程序化生成的方块贴图。
 
@@ -75,6 +77,7 @@ just dev
 - 遵循 Rust 命名规范 (P.NAM, G.FMT)
 - 使用 `just clippy` 检查代码
 - 使用 `just fmt` 格式化代码
+- 默认 dev/test profile 只保留 `line-tables-only` 级别的 debuginfo；如果需要深度调试依赖栈，可临时在 `Cargo.toml` 中提高 debug 配置后再复现问题
 
 ### 测试
 

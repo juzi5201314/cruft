@@ -103,7 +103,8 @@ crates/
 
 ## 平台
 
-- WSL 环境下 `just` 会通过 `scripts/cargo.cjs` 统一使用 `x86_64-pc-windows-gnu`；非 WSL 环境使用本机默认 target。
+- WSL 环境下仅 `just dev` / `just dev-release` 会通过 `scripts/cargo.cjs` 使用 `x86_64-pc-windows-gnu`；其余命令默认使用本机 native target。
+- native `just build` / `just test` / `just check` / `just clippy` 的结果不等于 Windows 运行路径已验证；涉及窗口/输入/渲染/平台行为时，仍需额外验证 `just dev` 或 `just dev-release`。
 
 ## 技能
 - 在编写涉及到bevy的代码时，必须查看 $bevy skill
