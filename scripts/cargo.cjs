@@ -49,7 +49,9 @@ const argv = process.argv.slice(2);
 if (argv.length === 0) usage();
 
 const subcommand = argv.shift();
-const targetArgs = isWsl() ? ['--target', 'x86_64-pc-windows-gnu'] : [];
+const windowsRunTargetArgs = isWsl()
+  ? ['--target', 'x86_64-pc-windows-gnu']
+  : [];
 
 switch (subcommand) {
   case 'dev': {
@@ -57,7 +59,7 @@ switch (subcommand) {
     //
     // 注意：存档目录用环境变量注入（硬切换：不再透传 `--save-dir`）。
     const env = { ...process.env, CRUFT_SAVE_DIR: './.dev/run' };
-    const result = spawnSync('cargo', ['run', ...targetArgs, '--', ...argv], {
+    const result = spawnSync('cargo', ['run', ...windowsRunTargetArgs, '--', ...argv], {
       stdio: 'inherit',
       env,
     });
@@ -76,7 +78,7 @@ switch (subcommand) {
     const packageArgs = hasPackageArg(argv) ? [] : ['-p', 'app'];
     const result = spawnSync(
       'cargo',
-      ['run', '--release', ...packageArgs, ...targetArgs, '--', ...argv],
+      ['run', '--release', ...packageArgs, ...windowsRunTargetArgs, '--', ...argv],
       { stdio: 'inherit', env }
     );
 
@@ -91,19 +93,19 @@ switch (subcommand) {
   case 'build': {
     // 约定：build 默认构建可执行 crate（app）。如需构建其他 package，显式传 -p/--package。
     const packageArgs = hasPackageArg(argv) ? [] : ['-p', 'app'];
-    runCargo(['build', '--release', ...packageArgs, ...targetArgs, ...argv]);
+    runCargo(['build', '--release', ...packageArgs, ...argv]);
     break;
   }
   case 'test': {
-    runCargo(['nextest', 'run', ...targetArgs, '--color=never', ...argv]);
+    runCargo(['nextest', 'run', '--color=never', ...argv]);
     break;
   }
   case 'check': {
-    runCargo(['check', ...targetArgs, ...argv]);
+    runCargo(['check', ...argv]);
     break;
   }
   case 'clippy': {
-    runCargo(['clippy', ...targetArgs, ...argv]);
+    runCargo(['clippy', ...argv]);
     break;
   }
   case 'fmt': {

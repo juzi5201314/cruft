@@ -3,8 +3,8 @@
 # 常用命令统一用 `just` 管理（硬切换：不要手写 cargo 命令）。
 #
 # WSL target 规则由 `scripts/cargo.cjs` 统一决定：
-# - WSL：`x86_64-pc-windows-gnu`
-# - 非 WSL：本机默认 target
+# - `dev` / `dev-release`：WSL 下使用 `x86_64-pc-windows-gnu`
+# - 其他命令：默认使用本机 native target
 
 set positional-arguments
 
