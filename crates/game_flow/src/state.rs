@@ -1,4 +1,5 @@
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_state::prelude::*;
 
 /// 顶层应用状态：用于拆分“启动/前台菜单/游戏内”。
 #[derive(States, Default, Clone, Copy, Eq, PartialEq, Hash, Debug)]

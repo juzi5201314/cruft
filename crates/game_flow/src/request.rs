@@ -1,4 +1,5 @@
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_state::prelude::*;
 
 use crate::state::{
     AppState, FrontEndState, GameStartGeneration, GameStartKind, InGameState, PendingGameStart,

@@ -10,7 +10,9 @@ pub use state::{
     AppState, FrontEndState, GameStartGeneration, GameStartKind, InGameState, PendingGameStart,
 };
 
-use bevy::prelude::*;
+use bevy_app::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_state::prelude::*;
 
 /// Flow 插件：安装状态机与请求事件，并提供唯一的状态切换写入点。
 pub struct GameFlowPlugin;
