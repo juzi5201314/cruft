@@ -7,6 +7,7 @@ use bevy::render::extract_resource::ExtractResource;
 use bevy::tasks::{futures_lite::future, poll_once, AsyncComputeTaskPool, Task};
 
 use cruft_game_flow::{AppState, FlowRequest, InGameState};
+use cruft_proc_textures::TextureRegistry;
 use cruft_save::CurrentSave;
 use cruft_worldgen_spec::WorldGenConfig;
 
@@ -67,6 +68,32 @@ pub struct VoxelQuadUploadQueue {
     pub quad_capacity: u32,
     pub full: Option<Arc<[u64]>>,
     pub updates: Arc<[VoxelQuadUploadOp]>,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct VoxelMaterialFaceLayers {
+    pub albedo: u16,
+    pub normal: u16,
+    pub orm: u16,
+    pub emissive: u16,
+    pub height: u16,
+}
+
+#[derive(Debug, Clone, Default, ExtractResource, Resource)]
+pub struct VoxelMaterialTable {
+    pub entries: Vec<VoxelMaterialEntry>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct VoxelMaterialEntry {
+    pub alpha_mode: u32,
+    pub cutout_threshold: f32,
+    pub top: VoxelMaterialFaceLayers,
+    pub bottom: VoxelMaterialFaceLayers,
+    pub north: VoxelMaterialFaceLayers,
+    pub south: VoxelMaterialFaceLayers,
+    pub east: VoxelMaterialFaceLayers,
+    pub west: VoxelMaterialFaceLayers,
 }
 
 #[derive(Resource)]
@@ -218,6 +245,7 @@ impl Plugin for VoxelPlugin {
             .init_resource::<VoxelCenter>()
             .init_resource::<VoxelPhase>()
             .init_resource::<VoxelWorld>()
+            .init_resource::<VoxelMaterialTable>()
             .init_resource::<VoxelQuadUploadQueue>()
             .init_resource::<VoxelLoadingTracker>()
             .init_resource::<VoxelMeshingTasks>()
@@ -231,6 +259,7 @@ impl Plugin for VoxelPlugin {
                 Update,
                 (
                     configure_worldgen_from_save_system,
+                    sync_block_materials_from_registry_system,
                     update_loading_tracker_system,
                     stream_chunks_system,
                     spawn_meshing_tasks_system,
@@ -241,6 +270,52 @@ impl Plugin for VoxelPlugin {
                     .run_if(in_state(AppState::InGame)),
             );
     }
+}
+
+fn sync_block_materials_from_registry_system(
+    registry: Option<Res<TextureRegistry>>,
+    mut world: ResMut<VoxelWorld>,
+    mut table: ResMut<VoxelMaterialTable>,
+) {
+    let Some(registry) = registry else {
+        return;
+    };
+    if !world.defs.is_resolved() {
+        if let Err(error) = world.defs.resolve_from_registry(&registry) {
+            log::error!("Failed to resolve voxel block materials: {error}");
+            return;
+        }
+    }
+    if !table.entries.is_empty() {
+        return;
+    }
+
+    table.entries = world
+        .defs
+        .iter()
+        .map(|(_index, def)| {
+            let Some(texture) = registry.get(def.texture_name) else {
+                return VoxelMaterialEntry::default();
+            };
+            let convert = |face: &cruft_proc_textures::ResolvedFace| VoxelMaterialFaceLayers {
+                albedo: face.albedo.layer_index,
+                normal: face.normal.layer_index,
+                orm: face.orm.layer_index,
+                emissive: face.emissive.layer_index,
+                height: face.height.layer_index,
+            };
+            VoxelMaterialEntry {
+                alpha_mode: texture.alpha_mode as u32,
+                cutout_threshold: texture.cutout_threshold,
+                top: convert(&texture.top),
+                bottom: convert(&texture.bottom),
+                north: convert(&texture.north),
+                south: convert(&texture.south),
+                east: convert(&texture.east),
+                west: convert(&texture.west),
+            }
+        })
+        .collect();
 }
 
 #[expect(
@@ -424,6 +499,10 @@ fn spawn_meshing_tasks_system(
     load_gate: Res<VoxelLoadGate>,
     chunks: Query<(&ChunkKey, &ChunkGeneration)>,
 ) {
+    if !world.defs.is_resolved() {
+        return;
+    }
+
     if matches!(*phase, VoxelPhase::Loading) && !load_gate.worldgen_ready {
         return;
     }

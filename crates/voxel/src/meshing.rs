@@ -21,12 +21,12 @@ pub struct PackedQuad(pub u64);
 impl PackedQuad {
     /// `docs/voxel/meshing.md` 的 PackedQuad(u64) 写死布局：
     /// - low32: x(6) | y(6) | z(6) | w_minus1(5) | h_minus1(5) | face(3) | reserved1(1)
-    /// - high32: material_key(8) | flags(8) | reserved(16)
+    /// - high32: material_id(16) | flags(8) | reserved(8)
     #[expect(
         clippy::too_many_arguments,
         reason = "PackedQuad 位打包构造直接映射字段，保持扁平参数最直观"
     )]
-    pub fn new(x: u8, y: u8, z: u8, w: u8, h: u8, face: Face, material_key: u8, flags: u8) -> Self {
+    pub fn new(x: u8, y: u8, z: u8, w: u8, h: u8, face: Face, material_id: u16, flags: u8) -> Self {
         debug_assert!(x <= 32);
         debug_assert!(y <= 32);
         debug_assert!(z <= 32);
@@ -39,7 +39,7 @@ impl PackedQuad {
             | (((w as u32) - 1) << 18)
             | (((h as u32) - 1) << 23)
             | ((face as u32) << 28);
-        let high32 = (material_key as u32) | ((flags as u32) << 8);
+        let high32 = (material_id as u32) | ((flags as u32) << 16);
         Self((low32 as u64) | ((high32 as u64) << 32))
     }
 
@@ -52,8 +52,8 @@ impl PackedQuad {
         let w = (((low >> 18) & 0x1F) as u8) + 1;
         let h = (((low >> 23) & 0x1F) as u8) + 1;
         let face = ((low >> 28) & 0x07) as u8;
-        let material_key = (high & 0xFF) as u8;
-        let flags = ((high >> 8) & 0xFF) as u8;
+        let material_id = (high & 0xFFFF) as u16;
+        let flags = ((high >> 16) & 0xFF) as u8;
         DecodedQuad {
             x,
             y,
@@ -61,7 +61,7 @@ impl PackedQuad {
             w,
             h,
             face,
-            material_key,
+            material_id,
             flags,
         }
     }
@@ -75,7 +75,7 @@ pub struct DecodedQuad {
     pub w: u8,
     pub h: u8,
     pub face: u8,
-    pub material_key: u8,
+    pub material_id: u16,
     pub flags: u8,
 }
 
@@ -118,7 +118,7 @@ pub fn mesh(input: &MeshingInput, defs: &BlockDefs) -> MeshingOutput {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct FaceKey {
     render_layer: RenderLayer,
-    material_key: u8,
+    material_id: u16,
 }
 
 const CHUNK_AXIS: usize = CHUNK_SIZE as usize;
@@ -150,7 +150,7 @@ pub fn mesh_padded_chunk(
                     w,
                     h,
                     Face::PosX,
-                    key.material_key,
+                    key.material_id,
                     key.render_layer as u8,
                 ),
             );
@@ -170,7 +170,7 @@ pub fn mesh_padded_chunk(
                     w,
                     h,
                     Face::NegX,
-                    key.material_key,
+                    key.material_id,
                     key.render_layer as u8,
                 ),
             );
@@ -193,7 +193,7 @@ pub fn mesh_padded_chunk(
                     w,
                     h,
                     Face::PosY,
-                    key.material_key,
+                    key.material_id,
                     key.render_layer as u8,
                 ),
             );
@@ -213,7 +213,7 @@ pub fn mesh_padded_chunk(
                     w,
                     h,
                     Face::NegY,
-                    key.material_key,
+                    key.material_id,
                     key.render_layer as u8,
                 ),
             );
@@ -236,7 +236,7 @@ pub fn mesh_padded_chunk(
                     w,
                     h,
                     Face::PosZ,
-                    key.material_key,
+                    key.material_id,
                     key.render_layer as u8,
                 ),
             );
@@ -256,7 +256,7 @@ pub fn mesh_padded_chunk(
                     w,
                     h,
                     Face::NegZ,
-                    key.material_key,
+                    key.material_id,
                     key.render_layer as u8,
                 ),
             );
@@ -311,7 +311,7 @@ fn face_key_for(
 
     Some(FaceKey {
         render_layer: a_def.render_layer,
-        material_key: a_def.material_key,
+        material_id: a_def.material_id,
     })
 }
 
@@ -467,7 +467,7 @@ mod tests {
                 w: 1,
                 h: 1,
                 face,
-                material_key: defs.def(STONE).material_key,
+                material_id: defs.def(STONE).material_id,
                 flags: RenderLayer::Opaque as u8,
             })
             .collect::<Vec<_>>();
@@ -479,10 +479,10 @@ mod tests {
     }
 
     #[test]
-    fn packed_quad_roundtrip_with_u8_material_key() {
-        let quad = PackedQuad::new(1, 2, 3, 4, 5, Face::PosZ, 13, 7);
+    fn packed_quad_roundtrip_with_u16_material_id() {
+        let quad = PackedQuad::new(1, 2, 3, 4, 5, Face::PosZ, 513, 7);
         let decoded = quad.decode();
-        assert_eq!(decoded.material_key, 13);
+        assert_eq!(decoded.material_id, 513);
         assert_eq!(decoded.flags, 7);
         assert_eq!(decoded.face, Face::PosZ as u8);
     }
@@ -505,7 +505,7 @@ mod tests {
         assert_eq!(opaque.len(), 6);
 
         for decoded in opaque.into_iter().map(|q| q.decode()) {
-            assert_eq!(decoded.material_key, defs.def(STONE).material_key);
+            assert_eq!(decoded.material_id, defs.def(STONE).material_id);
             assert_eq!(decoded.flags, RenderLayer::Opaque as u8);
             assert_eq!(decoded.w, 32);
             assert_eq!(decoded.h, 32);

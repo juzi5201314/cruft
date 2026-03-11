@@ -7,20 +7,28 @@ struct Quad {
     high: u32,
 }
 
+const MATERIAL_TABLE_STRIDE: u32 = 32u;
+const FACE_CHANNEL_STRIDE: u32 = 5u;
+
 @group(0) @binding(0) var<uniform> view: View;
 
 // chunk_meta 固定 stride=12*u32：
 // [origin.xyz(i32), opaque_offset(u32), min.xyz(i32), opaque_len(u32), max.xyz(i32), reserved]
 @group(1) @binding(0) var<storage, read> chunk_meta: array<u32>;
 @group(1) @binding(1) var<storage, read> quads: array<u32>;
-@group(1) @binding(2) var<storage, read> face_mappings: array<u32>;
-@group(1) @binding(3) var array_texture: texture_2d_array<f32>;
-@group(1) @binding(4) var array_sampler: sampler;
+@group(1) @binding(2) var<storage, read> material_table: array<u32>;
+@group(1) @binding(3) var albedo_texture: texture_2d_array<f32>;
+@group(1) @binding(4) var normal_texture: texture_2d_array<f32>;
+@group(1) @binding(5) var orm_texture: texture_2d_array<f32>;
+@group(1) @binding(6) var emissive_texture: texture_2d_array<f32>;
+@group(1) @binding(7) var height_texture: texture_2d_array<f32>;
+@group(1) @binding(8) var array_sampler: sampler;
 
 struct VsOut {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) uv: vec2<f32>,
-    @location(1) @interpolate(flat) layer: i32,
+    @location(1) @interpolate(flat) face: u32,
+    @location(2) @interpolate(flat) material_id: u32,
 }
 
 fn chunk_meta_base(chunk_index: u32) -> u32 {
@@ -47,32 +55,43 @@ fn decode_u32(pair_index: u32) -> Quad {
     return Quad(low, high);
 }
 
-fn mapped_layer(material_key: u32, face: u32) -> i32 {
-    // 每个 material_key 固定占 8 个 u32：
-    // [legacy, top, bottom, north, south, east, west, valid]
-    let stride = 8u;
-    let base = material_key * stride;
-    let required_len = base + stride;
-    if (required_len > arrayLength(&face_mappings)) {
-        return i32(material_key);
-    }
-
-    let valid = face_mappings[base + 7u];
-    if (valid == 0u) {
-        return i32(material_key);
-    }
-
+fn face_offset(face: u32) -> u32 {
     switch (face) {
-        // +X / -X
-        case 0u: { return i32(face_mappings[base + 5u]); } // east
-        case 1u: { return i32(face_mappings[base + 6u]); } // west
-        // +Y / -Y
-        case 2u: { return i32(face_mappings[base + 1u]); } // top
-        case 3u: { return i32(face_mappings[base + 2u]); } // bottom
-        // +Z / -Z
-        case 4u: { return i32(face_mappings[base + 4u]); } // south
-        default: { return i32(face_mappings[base + 3u]); } // north
+        case 0u: { return 22u; } // east
+        case 1u: { return 27u; } // west
+        case 2u: { return 2u; }  // top
+        case 3u: { return 7u; }  // bottom
+        case 4u: { return 17u; } // south
+        default: { return 12u; } // north
     }
+}
+
+fn material_base(material_id: u32) -> u32 {
+    return material_id * MATERIAL_TABLE_STRIDE;
+}
+
+fn material_face_layer(material_id: u32, face: u32, channel_offset: u32) -> i32 {
+    let base = material_base(material_id) + face_offset(face) + channel_offset;
+    if (base >= arrayLength(&material_table)) {
+        return 0;
+    }
+    return i32(material_table[base]);
+}
+
+fn material_alpha_mode(material_id: u32) -> u32 {
+    let base = material_base(material_id);
+    if (base >= arrayLength(&material_table)) {
+        return 0u;
+    }
+    return material_table[base];
+}
+
+fn material_cutout_threshold(material_id: u32) -> f32 {
+    let base = material_base(material_id);
+    if (base + 1u >= arrayLength(&material_table)) {
+        return 0.5;
+    }
+    return bitcast<f32>(material_table[base + 1u]);
 }
 
 fn quad_corner(vid: u32) -> vec2<f32> {
@@ -104,7 +123,7 @@ fn vertex(
     let w = f32(((q.low >> 18u) & 0x1Fu) + 1u);
     let h = f32(((q.low >> 23u) & 0x1Fu) + 1u);
     let face = (q.low >> 28u) & 0x7u;
-    let material_key = (q.high & 0xFFu);
+    let material_id = (q.high & 0xFFFFu);
 
     var u_axis = vec3<f32>(1.0, 0.0, 0.0);
     var v_axis = vec3<f32>(0.0, 0.0, 1.0);
@@ -138,11 +157,25 @@ fn vertex(
     var out: VsOut;
     out.clip_position = clip;
     out.uv = corner;
-    out.layer = mapped_layer(material_key, face);
+    out.face = face;
+    out.material_id = material_id;
     return out;
 }
 
 @fragment
 fn fragment(in: VsOut) -> @location(0) vec4<f32> {
-    return textureSample(array_texture, array_sampler, in.uv, in.layer);
+    let albedo_layer = material_face_layer(in.material_id, in.face, 0u);
+    let normal_layer = material_face_layer(in.material_id, in.face, 1u);
+    let orm_layer = material_face_layer(in.material_id, in.face, 2u);
+    let emissive_layer = material_face_layer(in.material_id, in.face, 3u);
+    let height_layer = material_face_layer(in.material_id, in.face, 4u);
+    let color = textureSample(albedo_texture, array_sampler, in.uv, albedo_layer);
+    let orm = textureSample(orm_texture, array_sampler, in.uv, orm_layer);
+    let _normal = textureSample(normal_texture, array_sampler, in.uv, normal_layer);
+    let emissive = textureSample(emissive_texture, array_sampler, in.uv, emissive_layer);
+    let _height = textureSample(height_texture, array_sampler, in.uv, height_layer);
+    if (material_alpha_mode(in.material_id) == 1u && orm.a < material_cutout_threshold(in.material_id)) {
+        discard;
+    }
+    return vec4<f32>(color.rgb + emissive.rgb * 0.0, color.a);
 }

@@ -1,228 +1,443 @@
-[
-  {
-    "name": "minecraft_grass",
+{
+  "spec": "cruft.procedural_texture",
+  "spec_version": "1.0.0",
+  "profile": "voxel_cube_pbr",
+  "meta": {
+    "author": "cruft",
+    "license": "MIT",
+    "description": "Runtime block texture set"
+  },
+  "output": {
     "size": 64,
-    "seed": 9001,
-    "style": "minecraft",
-    "faces": {
-      "top": {
-        "has_layer": false,
-        "base": {
-          "palette": [
-            [48, 94, 36],
-            [62, 116, 44],
-            [85, 140, 58],
-            [120, 170, 78]
-          ],
-          "noise_scale": 11.2,
-          "octaves": 3,
-          "warp_strength": 0.025
+    "mipmaps": "full",
+    "normal_format": "opengl"
+  },
+  "defaults": {
+    "surface": {
+      "logical_size": 16,
+      "pixel_snap": true,
+      "domain": "face_uv",
+      "tile_mode": "repeat",
+      "seed": 0,
+      "normal": {
+        "mode": "flat",
+        "strength": 1.0
+      }
+    },
+    "texture": {
+      "sampler": {
+        "mag_filter": "nearest",
+        "min_filter": "nearest",
+        "mipmap_filter": "nearest",
+        "anisotropy": 1,
+        "address_u": "clamp_to_edge",
+        "address_v": "clamp_to_edge"
+      },
+      "alpha_mode": "opaque",
+      "cutout_threshold": 0.5
+    }
+  },
+  "surfaces": {
+    "dirt": {
+      "seed": 1101,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.0,
+            "stretch": [1.0, 1.0, 1.0],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [0.0, 0.0, 0.0],
+            "seed_offset": 0
+          }
         }
       },
-      "sides": {
-        "has_layer": true,
-        "layer_ratio": 0.36,
-        "top_layer_palette": [
-          [48, 94, 36],
-          [62, 116, 44],
-          [85, 140, 58],
-          [120, 170, 78]
-        ],
-        "base": {
-          "palette": [
-            [71, 47, 28],
-            [91, 62, 38],
-            [110, 80, 50],
-            [140, 110, 70]
-          ],
-          "noise_scale": 5.2,
-          "octaves": 4,
-          "warp_strength": 0.06
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": ["#4A321F", "#5C3D26", "#6E4B30", "#81583A"]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [0.42, 0.58]
+          }
+        },
+        "roughness": {
+          "mode": "constant",
+          "value": 0.95
+        },
+        "ao": {
+          "mode": "constant",
+          "value": 1.0
+        },
+        "metallic": {
+          "mode": "constant",
+          "value": 0.0
+        },
+        "opacity": {
+          "mode": "constant",
+          "value": 1.0
         }
       },
-      "bottom": {
-        "has_layer": false,
-        "base": {
-          "palette": [
-            [71, 47, 28],
-            [91, 62, 38],
-            [110, 80, 50],
-            [140, 110, 70]
-          ],
-          "noise_scale": 4.0,
-          "octaves": 4,
-          "warp_strength": 0.075
-        }
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
       }
-    }
-  },
-  {
-    "name": "minecraft_dirt",
-    "size": 64,
-    "seed": 1337,
-    "style": "minecraft",
-    "faces": {
-      "all": {
-        "has_layer": false,
-        "base": {
-          "palette": [
-            [71, 47, 28],
-            [91, 62, 38],
-            [110, 80, 50],
-            [140, 110, 70]
-          ],
-          "noise_scale": 4.0,
-          "octaves": 4,
-          "warp_strength": 0.075
-        }
-      }
-    }
-  },
-  {
-    "name": "minecraft_snowy_dirt",
-    "size": 64,
-    "seed": 2024,
-    "style": "minecraft",
-    "faces": {
-      "top": {
-        "has_layer": false,
-        "base": {
-          "palette": [
-            [220, 220, 235],
-            [235, 235, 248],
-            [245, 245, 255],
-            [255, 255, 255]
-          ],
-          "noise_scale": 1.8,
-          "octaves": 3,
-          "warp_strength": 0.05
+    },
+    "grass_top": {
+      "seed": 9001,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 2.8,
+            "stretch": [1.0, 1.0, 1.0],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [0.0, 0.0, 0.0],
+            "seed_offset": 0
+          }
         }
       },
-      "sides": {
-        "has_layer": true,
-        "layer_ratio": 0.35,
-        "top_layer_palette": [
-          [220, 220, 235],
-          [235, 235, 248],
-          [245, 245, 255],
-          [255, 255, 255]
-        ],
-        "base": {
-          "palette": [
-            [71, 47, 28],
-            [91, 62, 38],
-            [110, 80, 50],
-            [140, 110, 70]
-          ],
-          "noise_scale": 2.2,
-          "octaves": 4,
-          "warp_strength": 0.12
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": ["#305E24", "#3E742C", "#558C3A", "#78AA4E"]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [0.45, 0.64]
+          }
+        },
+        "roughness": {
+          "mode": "constant",
+          "value": 0.92
+        },
+        "ao": {
+          "mode": "constant",
+          "value": 1.0
+        },
+        "metallic": {
+          "mode": "constant",
+          "value": 0.0
+        },
+        "opacity": {
+          "mode": "constant",
+          "value": 1.0
         }
       },
-      "bottom": {
-        "has_layer": false,
-        "base": {
-          "palette": [
-            [71, 47, 28],
-            [91, 62, 38],
-            [110, 80, 50],
-            [140, 110, 70]
-          ],
-          "noise_scale": 4.0,
-          "octaves": 4,
-          "warp_strength": 0.075
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.2
+      }
+    },
+    "grass_side": {
+      "seed": 9101,
+      "signals": {
+        "dirt_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.0,
+            "stretch": [1.0, 1.0, 1.0],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [0.0, 0.0, 0.0],
+            "seed_offset": 0
+          }
+        },
+        "grass_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 2.8,
+            "stretch": [1.0, 1.0, 1.0],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [0.0, 0.0, 0.0],
+            "seed_offset": 23
+          }
+        },
+        "cap_band_jitter": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 4.0,
+            "stretch": [1.0, 1.0, 1.0],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [0.0, 0.0, 0.0],
+            "seed_offset": 97
+          }
         }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "dirt_noise",
+          "palette": ["#4A321F", "#5C3D26", "#6E4B30", "#81583A"]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "dirt_noise",
+          "remap": {
+            "range": [0.42, 0.58]
+          }
+        }
+      },
+      "layers": [
+        {
+          "name": "grass_cap",
+          "mask": {
+            "mode": "axis_band",
+            "axis": "v",
+            "from": 0.0,
+            "to": 0.30,
+            "falloff": 0.05,
+            "invert": false,
+            "jitter": {
+              "amount": 0.03,
+              "source": "cap_band_jitter"
+            }
+          },
+          "strength": 1.0,
+          "albedo": {
+            "mode": "palette",
+            "source": "grass_noise",
+            "palette": ["#305E24", "#3E742C", "#558C3A", "#78AA4E"]
+          },
+          "height": {
+            "mode": "signal",
+            "source": "grass_noise",
+            "remap": {
+              "range": [0.50, 0.66]
+            }
+          },
+          "blend": {
+            "albedo": "mix",
+            "height": "max"
+          }
+        }
+      ],
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "stone_surface": {
+      "seed": 42,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "gradient",
+            "fractal": "ridged",
+            "scale": 3.2,
+            "stretch": [1.0, 1.0, 1.0],
+            "octaves": 4,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [0.0, 0.0, 0.0],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": ["#61656C", "#737A84", "#878F9B", "#A0A7B3"]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [0.40, 0.60]
+          }
+        },
+        "roughness": {
+          "mode": "constant",
+          "value": 0.88
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.2
+      }
+    },
+    "sand_surface": {
+      "seed": 8181,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 2.6,
+            "stretch": [1.0, 1.0, 1.0],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [0.0, 0.0, 0.0],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": ["#B9AA70", "#C8B87C", "#DAC988", "#E8D796"]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [0.46, 0.58]
+          }
+        },
+        "roughness": {
+          "mode": "constant",
+          "value": 0.98
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "gravel_surface": {
+      "seed": 9292,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "gradient",
+            "fractal": "fbm",
+            "scale": 2.4,
+            "stretch": [1.0, 1.0, 1.0],
+            "octaves": 4,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [0.0, 0.0, 0.0],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": ["#706E6A", "#7E7C78", "#8E8C88", "#9E9C97"]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [0.44, 0.62]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.1
+      }
+    },
+    "snow_surface": {
+      "seed": 10303,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 1.6,
+            "stretch": [1.0, 1.0, 1.0],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [0.0, 0.0, 0.0],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": ["#E0E2E8", "#ECEEF4", "#F6F8FC", "#FFFFFF"]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [0.48, 0.64]
+          }
+        },
+        "roughness": {
+          "mode": "constant",
+          "value": 0.82
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.9
       }
     }
   },
-  {
-    "name": "minecraft_stone",
-    "size": 64,
-    "seed": 42,
-    "style": "minecraft",
-    "faces": {
-      "all": {
-        "has_layer": false,
-        "base": {
-          "palette": [
-            [80, 80, 85],
-            [105, 105, 112],
-            [130, 130, 140],
-            [160, 160, 170],
-            [182, 182, 192],
-            [205, 205, 215]
-          ],
-          "noise_scale": 1.0,
-          "octaves": 4,
-          "warp_strength": 0.1
-        }
+  "textures": {
+    "grass_block": {
+      "faces": {
+        "top": "grass_top",
+        "bottom": "dirt",
+        "sides": "grass_side"
+      }
+    },
+    "dirt_block": {
+      "faces": {
+        "all": "dirt"
+      }
+    },
+    "stone_block": {
+      "faces": {
+        "all": "stone_surface"
+      }
+    },
+    "sand_block": {
+      "faces": {
+        "all": "sand_surface"
+      }
+    },
+    "gravel_block": {
+      "faces": {
+        "all": "gravel_surface"
+      }
+    },
+    "snow_block": {
+      "faces": {
+        "all": "snow_surface"
       }
     }
   },
-  {
-    "name": "minecraft_sand",
-    "size": 64,
-    "seed": 8181,
-    "style": "minecraft",
-    "faces": {
-      "all": {
-        "has_layer": false,
-        "base": {
-          "palette": [
-            [185, 170, 112],
-            [200, 184, 124],
-            [218, 201, 136],
-            [232, 215, 150]
-          ],
-          "noise_scale": 3.2,
-          "octaves": 3,
-          "warp_strength": 0.05
-        }
-      }
-    }
-  },
-  {
-    "name": "minecraft_gravel",
-    "size": 64,
-    "seed": 9292,
-    "style": "minecraft",
-    "faces": {
-      "all": {
-        "has_layer": false,
-        "base": {
-          "palette": [
-            [112, 110, 106],
-            [126, 124, 120],
-            [142, 140, 136],
-            [158, 156, 151]
-          ],
-          "noise_scale": 2.4,
-          "octaves": 4,
-          "warp_strength": 0.08
-        }
-      }
-    }
-  },
-  {
-    "name": "minecraft_snow",
-    "size": 64,
-    "seed": 10303,
-    "style": "minecraft",
-    "faces": {
-      "all": {
-        "has_layer": false,
-        "base": {
-          "palette": [
-            [224, 226, 232],
-            [236, 238, 244],
-            [246, 248, 252],
-            [255, 255, 255]
-          ],
-          "noise_scale": 1.6,
-          "octaves": 3,
-          "warp_strength": 0.06
-        }
-      }
-    }
-  }
-]
+  "extensions_used": [],
+  "extensions": {}
+}

@@ -35,38 +35,38 @@ use bevy::{
     },
 };
 
-use cruft_proc_textures::{BlockTextureArray, BlockTextureFaceMapping, BlockTextureFaceMappings};
+use cruft_proc_textures::TextureRuntimePacks;
 
 use crate::coords::ChunkKey;
-use crate::world::{ChunkBounds, ChunkDrawRange, VoxelQuadUploadQueue};
+use crate::world::{ChunkBounds, ChunkDrawRange, VoxelMaterialTable, VoxelQuadUploadQueue};
 
 const SHADER_ASSET_PATH: &str = "shaders/voxel_quads.wgsl";
 const CULL_SHADER_ASSET_PATH: &str = "shaders/voxel_cull.wgsl";
 const VOXEL_SAMPLING_ENV: &str = "CRUFT_VOXEL_SAMPLING";
 const MAX_MATERIAL_KEYS: usize = 256;
-const MATERIAL_FACE_MAPPING_STRIDE_U32: usize = 8;
+const MATERIAL_TABLE_STRIDE_U32: usize = 32;
 const CHUNK_META_STRIDE_U32: usize = 12;
 const CULL_WORKGROUP_SIZE: u32 = 64;
 
 #[derive(Resource, Clone)]
-struct ExtractedBlockTextureArray(pub Handle<Image>);
+struct ExtractedTextureRuntimePacks(pub TextureRuntimePacks);
 
-impl ExtractResource for ExtractedBlockTextureArray {
-    type Source = BlockTextureArray;
+impl ExtractResource for ExtractedTextureRuntimePacks {
+    type Source = TextureRuntimePacks;
 
     fn extract_resource(source: &Self::Source) -> Self {
-        Self(source.0.clone())
+        Self(source.clone())
     }
 }
 
 #[derive(Resource, Clone, Default)]
-struct ExtractedBlockTextureFaceMappings(pub Vec<BlockTextureFaceMapping>);
+struct ExtractedVoxelMaterialTable(pub VoxelMaterialTable);
 
-impl ExtractResource for ExtractedBlockTextureFaceMappings {
-    type Source = BlockTextureFaceMappings;
+impl ExtractResource for ExtractedVoxelMaterialTable {
+    type Source = VoxelMaterialTable;
 
     fn extract_resource(source: &Self::Source) -> Self {
-        Self(source.0.clone())
+        Self(source.clone())
     }
 }
 
@@ -108,15 +108,15 @@ struct ChunkMetaCpu {
 struct VoxelGpuBuffers {
     /// 以 `u32` 序列上传：每个 quad 占 2 个 u32（low/high）。
     quads_u32: RawBufferVec<u32>,
-    /// face 映射表：按 material_key 索引，每项 8 个 u32。
-    face_mappings_u32: RawBufferVec<u32>,
+    /// 运行时材质表：按 material_id 索引，每项固定 32 个 u32。
+    material_table_u32: RawBufferVec<u32>,
     /// chunk 元数据表，固定 stride=12*u32（见 `voxel_quads.wgsl` / `voxel_cull.wgsl`）。
     chunk_meta_u32: RawBufferVec<u32>,
     /// DrawIndirectArgs 序列（每 chunk 一条，4*u32）。
     indirect_u32: RawBufferVec<u32>,
     culling_uniform: UniformBuffer<VoxelCullingUniform>,
     uploaded_epoch: u64,
-    last_face_mappings: Vec<u32>,
+    last_material_table: Vec<u32>,
     chunk_count: u32,
 }
 
@@ -124,20 +124,20 @@ impl Default for VoxelGpuBuffers {
     fn default() -> Self {
         let mut quads_u32 = RawBufferVec::new(BufferUsages::STORAGE);
         quads_u32.set_label(Some("voxel_quads_u32"));
-        let mut face_mappings_u32 = RawBufferVec::new(BufferUsages::STORAGE);
-        face_mappings_u32.set_label(Some("voxel_face_mappings_u32"));
+        let mut material_table_u32 = RawBufferVec::new(BufferUsages::STORAGE);
+        material_table_u32.set_label(Some("voxel_material_table_u32"));
         let mut chunk_meta_u32 = RawBufferVec::new(BufferUsages::STORAGE);
         chunk_meta_u32.set_label(Some("voxel_chunk_meta_u32"));
         let mut indirect_u32 = RawBufferVec::new(BufferUsages::INDIRECT | BufferUsages::STORAGE);
         indirect_u32.set_label(Some("voxel_indirect_u32"));
         Self {
             quads_u32,
-            face_mappings_u32,
+            material_table_u32,
             chunk_meta_u32,
             indirect_u32,
             culling_uniform: UniformBuffer::default(),
             uploaded_epoch: 0,
-            last_face_mappings: Vec::new(),
+            last_material_table: Vec::new(),
             chunk_count: 0,
         }
     }
@@ -172,8 +172,8 @@ impl Plugin for VoxelRenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             ExtractResourcePlugin::<VoxelQuadUploadQueue>::default(),
-            ExtractResourcePlugin::<ExtractedBlockTextureArray>::default(),
-            ExtractResourcePlugin::<ExtractedBlockTextureFaceMappings>::default(),
+            ExtractResourcePlugin::<ExtractedTextureRuntimePacks>::default(),
+            ExtractResourcePlugin::<ExtractedVoxelMaterialTable>::default(),
             ExtractComponentPlugin::<ChunkKey>::default(),
             ExtractComponentPlugin::<ChunkBounds>::default(),
             ExtractComponentPlugin::<ChunkDrawRange>::default(),
@@ -286,8 +286,12 @@ fn init_voxel_render_pipeline(
                 storage_buffer_read_only::<u32>(false),
                 // quad buffer：array<u32>，按 2 u32 / quad。
                 storage_buffer_read_only::<u32>(false),
-                // material_key -> face layer 映射表（每 key 固定 8 u32）。
+                // material_id -> six faces x five channels 的运行时材质表。
                 storage_buffer_read_only::<u32>(false),
+                texture_2d_array(TextureSampleType::Float { filterable: true }),
+                texture_2d_array(TextureSampleType::Float { filterable: true }),
+                texture_2d_array(TextureSampleType::Float { filterable: true }),
+                texture_2d_array(TextureSampleType::Float { filterable: true }),
                 texture_2d_array(TextureSampleType::Float { filterable: true }),
                 sampler(SamplerBindingType::Filtering),
             ),
@@ -370,7 +374,7 @@ fn prepare_voxel_gpu_buffers(
         Option<&ViewDepthPyramid>,
     )>,
     quads: Res<VoxelQuadUploadQueue>,
-    face_mappings: Option<Res<ExtractedBlockTextureFaceMappings>>,
+    material_table: Option<Res<ExtractedVoxelMaterialTable>>,
     chunks: Query<(&ChunkKey, &ChunkBounds, &ChunkDrawRange)>,
     mut buffers: ResMut<VoxelGpuBuffers>,
     mut pipeline: ResMut<VoxelRenderPipeline>,
@@ -379,8 +383,8 @@ fn prepare_voxel_gpu_buffers(
     pipeline_cache: Res<PipelineCache>,
 ) {
     upload_quads_if_needed(&quads, &mut buffers, &render_device, &render_queue);
-    upload_face_mappings_if_needed(
-        face_mappings.as_deref(),
+    upload_material_table_if_needed(
+        material_table.as_deref(),
         &mut buffers,
         &render_device,
         &render_queue,
@@ -673,24 +677,24 @@ fn upload_quads_if_needed(
     buffers.uploaded_epoch = quads.epoch;
 }
 
-fn upload_face_mappings_if_needed(
-    face_mappings: Option<&ExtractedBlockTextureFaceMappings>,
+fn upload_material_table_if_needed(
+    material_table: Option<&ExtractedVoxelMaterialTable>,
     buffers: &mut VoxelGpuBuffers,
     render_device: &RenderDevice,
     render_queue: &RenderQueue,
 ) {
-    let table = build_material_face_mapping_table(face_mappings);
-    if table == buffers.last_face_mappings {
+    let table = build_material_table_u32(material_table);
+    if table == buffers.last_material_table {
         return;
     }
 
-    buffers.last_face_mappings = table.clone();
-    buffers.face_mappings_u32.clear();
+    buffers.last_material_table = table.clone();
+    buffers.material_table_u32.clear();
     for value in table {
-        buffers.face_mappings_u32.push(value);
+        buffers.material_table_u32.push(value);
     }
     buffers
-        .face_mappings_u32
+        .material_table_u32
         .write_buffer(render_device, render_queue);
 }
 
@@ -735,7 +739,7 @@ fn prepare_voxel_bind_groups(
     buffers: Res<VoxelGpuBuffers>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<Option<&ViewDepthPyramid>, With<ExtractedView>>,
-    texture: Option<Res<ExtractedBlockTextureArray>>,
+    runtime_packs: Option<Res<ExtractedTextureRuntimePacks>>,
     gpu_images: Res<bevy::render::render_asset::RenderAssets<GpuImage>>,
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
@@ -761,17 +765,42 @@ fn prepare_voxel_bind_groups(
         bind_groups.culling = None;
         return;
     };
-    let Some(face_mapping_binding) = buffers.face_mappings_u32.binding() else {
+    let Some(material_table_binding) = buffers.material_table_u32.binding() else {
         bind_groups.voxel = None;
         bind_groups.culling = None;
         return;
     };
-    let Some(texture) = texture else {
+    let Some(runtime_packs) = runtime_packs else {
         bind_groups.voxel = None;
         bind_groups.culling = None;
         return;
     };
-    let Some(gpu_image) = gpu_images.get(&texture.0) else {
+    let Some(pack) = runtime_packs.0.packs.first() else {
+        bind_groups.voxel = None;
+        bind_groups.culling = None;
+        return;
+    };
+    let Some(albedo_image) = gpu_images.get(&pack.albedo) else {
+        bind_groups.voxel = None;
+        bind_groups.culling = None;
+        return;
+    };
+    let Some(normal_image) = gpu_images.get(&pack.normal) else {
+        bind_groups.voxel = None;
+        bind_groups.culling = None;
+        return;
+    };
+    let Some(orm_image) = gpu_images.get(&pack.orm) else {
+        bind_groups.voxel = None;
+        bind_groups.culling = None;
+        return;
+    };
+    let Some(emissive_image) = gpu_images.get(&pack.emissive) else {
+        bind_groups.voxel = None;
+        bind_groups.culling = None;
+        return;
+    };
+    let Some(height_image) = gpu_images.get(&pack.height) else {
         bind_groups.voxel = None;
         bind_groups.culling = None;
         return;
@@ -783,8 +812,12 @@ fn prepare_voxel_bind_groups(
         &BindGroupEntries::sequential((
             chunk_meta_binding.clone(),
             quad_binding.clone(),
-            face_mapping_binding.clone(),
-            &gpu_image.texture_view,
+            material_table_binding.clone(),
+            &albedo_image.texture_view,
+            &normal_image.texture_view,
+            &orm_image.texture_view,
+            &emissive_image.texture_view,
+            &height_image.texture_view,
             &pipeline.sampler,
         )),
     ));
@@ -813,60 +846,33 @@ fn prepare_voxel_bind_groups(
     ));
 }
 
-fn build_material_face_mapping_table(
-    mappings: Option<&ExtractedBlockTextureFaceMappings>,
-) -> Vec<u32> {
-    let mut table = Vec::with_capacity(MAX_MATERIAL_KEYS * MATERIAL_FACE_MAPPING_STRIDE_U32);
-
-    // 默认：未映射时所有朝向都回落到 legacy material_key。
-    for legacy in 0..MAX_MATERIAL_KEYS {
-        let legacy = legacy as u32;
-        table.extend_from_slice(&[
-            legacy, // legacy
-            legacy, // top
-            legacy, // bottom
-            legacy, // north
-            legacy, // south
-            legacy, // east
-            legacy, // west
-            0,      // valid flag
-        ]);
-    }
-
-    let Some(mappings) = mappings else {
+fn build_material_table_u32(materials: Option<&ExtractedVoxelMaterialTable>) -> Vec<u32> {
+    let mut table = vec![0; MAX_MATERIAL_KEYS * MATERIAL_TABLE_STRIDE_U32];
+    let Some(materials) = materials else {
         return table;
     };
 
-    for mapping in &mappings.0 {
-        let Ok(index) = usize::try_from(mapping.legacy) else {
-            log::warn!(
-                "face 映射 legacy 索引溢出：name={} legacy={}",
-                mapping.name,
-                mapping.legacy
-            );
-            continue;
-        };
+    for (index, material) in materials.0.entries.iter().enumerate() {
         if index >= MAX_MATERIAL_KEYS {
-            log::warn!(
-                "face 映射 legacy 索引越界：name={} legacy={} max={}",
-                mapping.name,
-                mapping.legacy,
-                MAX_MATERIAL_KEYS - 1
-            );
-            continue;
+            break;
         }
-
-        let base = index * MATERIAL_FACE_MAPPING_STRIDE_U32;
-        table[base] = mapping.legacy;
-        table[base + 1] = mapping.top;
-        table[base + 2] = mapping.bottom;
-        table[base + 3] = mapping.north;
-        table[base + 4] = mapping.south;
-        table[base + 5] = mapping.east;
-        table[base + 6] = mapping.west;
-        table[base + 7] = 1;
+        let base = index * MATERIAL_TABLE_STRIDE_U32;
+        table[base] = material.alpha_mode;
+        table[base + 1] = material.cutout_threshold.to_bits();
+        let mut write_face = |offset: usize, face: crate::world::VoxelMaterialFaceLayers| {
+            table[base + offset] = face.albedo as u32;
+            table[base + offset + 1] = face.normal as u32;
+            table[base + offset + 2] = face.orm as u32;
+            table[base + offset + 3] = face.emissive as u32;
+            table[base + offset + 4] = face.height as u32;
+        };
+        write_face(2, material.top);
+        write_face(7, material.bottom);
+        write_face(12, material.north);
+        write_face(17, material.south);
+        write_face(22, material.east);
+        write_face(27, material.west);
     }
-
     table
 }
 
@@ -962,46 +968,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn face_mapping_defaults_to_legacy_layer() {
-        let table = build_material_face_mapping_table(None);
-        assert_eq!(
-            table.len(),
-            MAX_MATERIAL_KEYS * MATERIAL_FACE_MAPPING_STRIDE_U32
-        );
-
-        let legacy = 7usize;
-        let base = legacy * MATERIAL_FACE_MAPPING_STRIDE_U32;
-        assert_eq!(table[base + 1], legacy as u32); // top
-        assert_eq!(table[base + 2], legacy as u32); // bottom
-        assert_eq!(table[base + 3], legacy as u32); // north
-        assert_eq!(table[base + 4], legacy as u32); // south
-        assert_eq!(table[base + 5], legacy as u32); // east
-        assert_eq!(table[base + 6], legacy as u32); // west
-        assert_eq!(table[base + 7], 0); // invalid -> fallback
+    fn material_table_defaults_to_zero() {
+        let table = build_material_table_u32(None);
+        assert_eq!(table.len(), MAX_MATERIAL_KEYS * MATERIAL_TABLE_STRIDE_U32);
+        assert!(table.iter().all(|value| *value == 0));
     }
 
     #[test]
-    fn face_mapping_overrides_specific_legacy_slot() {
-        let mappings = ExtractedBlockTextureFaceMappings(vec![BlockTextureFaceMapping {
-            name: "minecraft_grass".to_string(),
-            legacy: 0,
-            top: 11,
-            bottom: 12,
-            north: 13,
-            south: 14,
-            east: 15,
-            west: 16,
-        }]);
+    fn material_table_packs_face_layers() {
+        let materials = ExtractedVoxelMaterialTable(VoxelMaterialTable {
+            entries: vec![crate::world::VoxelMaterialEntry {
+                alpha_mode: 1,
+                cutout_threshold: 0.5,
+                top: crate::world::VoxelMaterialFaceLayers {
+                    albedo: 11,
+                    normal: 12,
+                    orm: 13,
+                    emissive: 14,
+                    height: 15,
+                },
+                ..Default::default()
+            }],
+        });
 
-        let table = build_material_face_mapping_table(Some(&mappings));
+        let table = build_material_table_u32(Some(&materials));
         let base = 0usize;
-        assert_eq!(table[base + 1], 11);
-        assert_eq!(table[base + 2], 12);
-        assert_eq!(table[base + 3], 13);
-        assert_eq!(table[base + 4], 14);
-        assert_eq!(table[base + 5], 15);
-        assert_eq!(table[base + 6], 16);
-        assert_eq!(table[base + 7], 1);
+        assert_eq!(table[base], 1);
+        assert_eq!(f32::from_bits(table[base + 1]), 0.5);
+        assert_eq!(table[base + 2], 11);
+        assert_eq!(table[base + 3], 12);
+        assert_eq!(table[base + 4], 13);
+        assert_eq!(table[base + 5], 14);
+        assert_eq!(table[base + 6], 15);
     }
 
     #[test]
