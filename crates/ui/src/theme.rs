@@ -28,9 +28,9 @@ pub struct UiTheme {
 
 impl FromWorld for UiTheme {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world
-            .get_resource::<AssetServer>()
-            .expect("CruftUiPlugin requires AssetServer (add DefaultPlugins before CruftUiPlugin)");
+        let asset_server = world.get_resource::<AssetServer>().unwrap_or_else(|| {
+            panic!("CruftUiPlugin requires AssetServer; add DefaultPlugins before CruftUiPlugin")
+        });
 
         let fonts = UiFontResources {
             sans: asset_server.load("fonts/Geist-Regular.ttf"),

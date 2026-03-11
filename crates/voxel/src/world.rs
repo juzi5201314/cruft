@@ -129,6 +129,7 @@ struct VoxelLoadingTracker {
 #[derive(Resource, Default)]
 struct VoxelMeshingTasks {
     tasks: HashMap<ChunkKey, Task<MeshingOutput>>,
+    epoch: u64,
 }
 
 #[derive(Resource, Default)]
@@ -242,10 +243,15 @@ impl Plugin for VoxelPlugin {
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "启动清理需要同时重置多个子系统资源"
+)]
 fn start_voxel_loading(
     mut phase: ResMut<VoxelPhase>,
     config: Res<VoxelConfig>,
     mut tracker: ResMut<VoxelLoadingTracker>,
+    mut tasks: ResMut<VoxelMeshingTasks>,
     world: ResMut<VoxelWorld>,
     mut load_gate: ResMut<VoxelLoadGate>,
     mut arena: ResMut<VoxelQuadArena>,
@@ -269,6 +275,8 @@ fn start_voxel_loading(
     tracker.finished = false;
     load_gate.worldgen_ready = false;
     load_gate.applied_world_id = None;
+    tasks.tasks.clear();
+    tasks.epoch = tasks.epoch.wrapping_add(1);
     let _ = &config;
     tracker.required.clear();
 }
@@ -321,6 +329,7 @@ fn cleanup_voxel_world(
     tracker.finished = false;
     tasks.tasks.clear();
     load_gate.worldgen_ready = false;
+    tasks.epoch = tasks.epoch.wrapping_add(1);
     load_gate.applied_world_id = None;
     arena.data.clear();
     arena.free.clear();
@@ -467,6 +476,7 @@ fn spawn_meshing_tasks_system(
 
         let (padded, snapshot_gen) = world.storage.padded_snapshot(key);
         let input = MeshingInput {
+            epoch: tasks.epoch,
             key,
             generation: snapshot_gen,
             padded,
@@ -498,6 +508,9 @@ fn poll_meshing_tasks_system(
             continue;
         };
         if let Some(result) = future::block_on(poll_once(&mut task)) {
+            if result.epoch != tasks.epoch {
+                continue;
+            }
             commit_meshing_result(
                 &mut commands,
                 &world,

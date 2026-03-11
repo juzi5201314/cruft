@@ -81,6 +81,7 @@ pub struct DecodedQuad {
 
 #[derive(Debug, Clone)]
 pub struct MeshingInput {
+    pub epoch: u64,
     pub key: ChunkKey,
     pub generation: u32,
     pub padded: PaddedChunk,
@@ -88,6 +89,7 @@ pub struct MeshingInput {
 
 #[derive(Debug, Clone)]
 pub struct MeshingOutput {
+    pub epoch: u64,
     pub key: ChunkKey,
     pub generation: u32,
     pub opaque: Vec<PackedQuad>,
@@ -104,6 +106,7 @@ impl MeshingOutput {
 pub fn mesh(input: &MeshingInput, defs: &BlockDefs) -> MeshingOutput {
     let (opaque, cutout, transparent) = mesh_padded_chunk(&input.padded, defs);
     MeshingOutput {
+        epoch: input.epoch,
         key: input.key,
         generation: input.generation,
         opaque,

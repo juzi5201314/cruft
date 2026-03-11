@@ -310,7 +310,12 @@ struct ProceduralTexturePaletteStorage {
 
 impl ProceduralTextureArrayParams {
     fn from_layers(layers_specs: &[ExpandedLayerSpec]) -> (Self, ProceduralTexturePaletteStorage) {
-        let layer_count = u32::try_from(layers_specs.len()).expect("Too many layers");
+        let layer_count = u32::try_from(layers_specs.len()).unwrap_or_else(|_| {
+            panic!(
+                "too many procedural texture layers: {} exceeds u32::MAX",
+                layers_specs.len()
+            )
+        });
         let mut palette_colors = Vec::new();
 
         let mut layers = std::array::from_fn(|_| ProceduralTextureLayerParams {
@@ -409,8 +414,14 @@ impl ExpandedLayerSpec {
 }
 
 fn append_palette(palette_colors: &mut Vec<Vec4>, palette: &[[u8; 3]]) -> (u32, u32) {
-    let offset = u32::try_from(palette_colors.len()).expect("palette offset exceeds u32::MAX");
-    let len = u32::try_from(palette.len()).expect("palette length exceeds u32::MAX");
+    let offset = u32::try_from(palette_colors.len()).unwrap_or_else(|_| {
+        panic!(
+            "palette offset {} exceeds u32::MAX",
+            palette_colors.len()
+        )
+    });
+    let len = u32::try_from(palette.len())
+        .unwrap_or_else(|_| panic!("palette length {} exceeds u32::MAX", palette.len()));
     palette_colors.extend(palette.iter().copied().map(rgb_u8_to_linear_vec4));
     (offset, len)
 }
@@ -1063,6 +1074,7 @@ fn prepare_procedural_texture_palette_buffer(
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
 struct ProceduralTextureLabel;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ProceduralTextureNodeState {
     Loading,
     Dispatching,
@@ -1177,11 +1189,21 @@ impl render_graph::Node for ProceduralTextureNode {
         let images = world.resource::<ProceduralTextureImages>();
         let gpu_image = gpu_images
             .get(&images.array)
-            .expect("ProceduralTexture output image wasn't prepared to GPU yet");
+            .unwrap_or_else(|| {
+                panic!(
+                    "procedural texture output image wasn't prepared to GPU yet: state={:?}",
+                    self.state
+                )
+            });
 
         let compute_pipeline = pipeline_cache
             .get_compute_pipeline(pipeline.pipeline)
-            .expect("ProceduralTexture compute pipeline wasn't ready");
+            .unwrap_or_else(|| {
+                panic!(
+                    "procedural texture compute pipeline wasn't ready: state={:?}",
+                    self.state
+                )
+            });
 
         let mut pass = render_context
             .command_encoder()

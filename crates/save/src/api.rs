@@ -6,7 +6,8 @@ use bevy::prelude::*;
 use bevy::tasks::{futures_lite::future, poll_once, IoTaskPool, Task};
 
 use cruft_game_flow::{
-    AppState, BootReadiness, BootReady, FlowRequest, GameStartKind, InGameState, PendingGameStart,
+    AppState, BootReadiness, BootReady, FlowRequest, GameStartGeneration, GameStartKind,
+    InGameState, PendingGameStart,
 };
 
 use crate::io;
@@ -222,10 +223,10 @@ fn start_ingame_load(
 
     commands.remove_resource::<PendingGameStart>();
 }
-
 fn poll_ingame_load(
     mut load_task: ResMut<SaveLoadTask>,
     mut current: ResMut<CurrentSave>,
+    generation: Res<GameStartGeneration>,
     mut results: MessageWriter<SaveLoadResult>,
     mut flow: MessageWriter<FlowRequest>,
 ) {
@@ -234,6 +235,12 @@ fn poll_ingame_load(
     };
 
     if let Some(outcome) = future::block_on(poll_once(&mut task)) {
+        // 丢弃旧 generation 的结果：如果用户快速"进入 -> 退出 -> 再进入"，
+        // 老会话的异步结果不能污染当前会话。
+        if outcome.generation != generation.0 {
+            return;
+        }
+
         match outcome.result {
             Ok(save) => {
                 current.0 = Some(save.clone());

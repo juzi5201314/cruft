@@ -37,14 +37,20 @@ impl Storage {
         if let Some(existing) = self.get_chunk(key) {
             return existing;
         }
-        let mut map = self.chunks.write().expect("storage map poisoned");
+        let mut map = self.chunks.write().unwrap_or_else(|e| {
+            log::error!("Storage map poisoned, recovering: {e}");
+            e.into_inner()
+        });
         map.entry(key)
             .or_insert_with(|| Arc::new(Chunk::new(key)))
             .clone()
     }
 
     pub fn clear(&self) {
-        let mut map = self.chunks.write().expect("storage map poisoned");
+        let mut map = self.chunks.write().unwrap_or_else(|e| {
+            log::error!("Storage map poisoned during clear, recovering: {e}");
+            e.into_inner()
+        });
         map.clear();
     }
 
