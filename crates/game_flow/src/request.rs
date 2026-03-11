@@ -152,7 +152,10 @@ pub fn apply_flow_requests(
     }
 }
 
-fn resolve_requests<'a>(snapshot: FlowSnapshot, requests: impl IntoIterator<Item = &'a FlowRequest>) -> FlowActions {
+fn resolve_requests<'a>(
+    snapshot: FlowSnapshot,
+    requests: impl IntoIterator<Item = &'a FlowRequest>,
+) -> FlowActions {
     let mut current_snapshot = snapshot;
     let mut merged = FlowActions::default();
 
@@ -272,12 +275,7 @@ mod tests {
 
     #[test]
     fn start_load_then_quit_to_main_menu_clears_pending_start() {
-        let s = snap(
-            AppState::FrontEnd,
-            Some(FrontEndState::SaveSelect),
-            None,
-            7,
-        );
+        let s = snap(AppState::FrontEnd, Some(FrontEndState::SaveSelect), None, 7);
         let requests = [
             FlowRequest::StartLoadSave("slot-1".into()),
             FlowRequest::QuitToMainMenu,
