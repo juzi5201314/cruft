@@ -3,9 +3,9 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-use crate::compiler::{CompiledTextureSet, CubeFace, TextureFingerprint};
+use crate::compiler::{CompiledTextureSet, CubeFace, NormalFormat, TextureFingerprint};
 use crate::error::TextureDataError;
-use crate::generator::{build_runtime_texture_assets, MipLevel};
+use crate::generator::{build_runtime_texture_assets, encode_normal_rgba8, MipLevel};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ExportManifest {
@@ -67,10 +67,10 @@ pub fn export_compiled_texture_set_to_dir(
                 true,
                 &compiled.source_path,
             )?;
-            export_rgba8_png(
+            export_normal_png(
                 face_dir.join("normal.png"),
                 &layer.normal[0],
-                false,
+                compiled.output.normal_format,
                 &compiled.source_path,
             )?;
             export_rgba8_png(
@@ -176,6 +176,31 @@ fn export_r16_png(
     Ok(())
 }
 
+fn export_normal_png(
+    path: PathBuf,
+    level: &MipLevel<bevy::prelude::Vec3>,
+    normal_format: NormalFormat,
+    source_path: &Path,
+) -> Result<(), TextureDataError> {
+    let file = fs::File::create(&path)
+        .map_err(|error| TextureDataError::export(source_path, None, error.to_string()))?;
+    let mut writer = std::io::BufWriter::new(file);
+    let mut encoder = png::Encoder::new(&mut writer, level.size, level.size);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut png_writer = encoder
+        .write_header()
+        .map_err(|error| TextureDataError::export(source_path, None, error.to_string()))?;
+    let mut bytes = Vec::with_capacity(level.data.len() * 4);
+    for pixel in &level.data {
+        bytes.extend_from_slice(&encode_normal_rgba8(*pixel, normal_format));
+    }
+    png_writer
+        .write_image_data(&bytes)
+        .map_err(|error| TextureDataError::export(source_path, None, error.to_string()))?;
+    Ok(())
+}
+
 trait IntoRgba {
     fn as_rgba8(&self, srgb: bool) -> [u8; 4];
 }
@@ -219,4 +244,64 @@ fn linear_to_srgb_u8(value: f32) -> u8 {
         1.055 * value.powf(1.0 / 2.4) - 0.055
     };
     (srgb.clamp(0.0, 1.0) * 255.0).round() as u8
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use bevy::prelude::Vec3;
+
+    use super::*;
+
+    fn unique_test_path(name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock should be valid")
+            .as_nanos();
+        std::env::temp_dir().join(format!("cruft-proc-textures-{name}-{nanos}.png"))
+    }
+
+    fn decode_rgba8(path: &Path) -> Vec<u8> {
+        let decoder = png::Decoder::new(fs::File::open(path).expect("png exists"));
+        let mut reader = decoder.read_info().expect("png header readable");
+        let mut buf = vec![0; reader.output_buffer_size()];
+        let info = reader.next_frame(&mut buf).expect("png frame readable");
+        buf[..info.buffer_size()].to_vec()
+    }
+
+    #[test]
+    fn exported_normal_png_uses_configured_normal_format() {
+        let level = MipLevel {
+            size: 1,
+            data: vec![Vec3::new(0.0, -1.0, 1.0).normalize()],
+        };
+        let source_path = Path::new("/tmp/test.texture.json");
+        let opengl_path = unique_test_path("opengl");
+        let directx_path = unique_test_path("directx");
+
+        export_normal_png(
+            opengl_path.clone(),
+            &level,
+            NormalFormat::OpenGl,
+            source_path,
+        )
+        .expect("opengl export");
+        export_normal_png(
+            directx_path.clone(),
+            &level,
+            NormalFormat::DirectX,
+            source_path,
+        )
+        .expect("directx export");
+
+        let opengl = decode_rgba8(&opengl_path);
+        let directx = decode_rgba8(&directx_path);
+        assert_eq!(opengl[0], directx[0]);
+        assert_eq!(opengl[2], directx[2]);
+        assert!(opengl[1] > directx[1]);
+
+        let _ = fs::remove_file(opengl_path);
+        let _ = fs::remove_file(directx_path);
+    }
 }

@@ -333,13 +333,9 @@ fn generate_face_layer(
 
     let normal_base = match surface.normal.mode {
         NormalMode::Flat => vec![Vec3::new(0.0, 0.0, 1.0); pixel_count],
-        NormalMode::DeriveFromHeight => derive_normal_from_height(
-            &height,
-            size,
-            surface.tile_mode,
-            compiled.output.normal_format,
-            surface.normal.strength,
-        ),
+        NormalMode::DeriveFromHeight => {
+            derive_normal_from_height(&height, size, surface.tile_mode, surface.normal.strength)
+        }
     };
 
     let albedo_mips = build_mips_vec4(&albedo, size, compiled.output.mipmaps, true);
@@ -877,7 +873,11 @@ fn sample_noise(
     if surface.tile_mode == TileMode::Repeat {
         point = Vec3::new(point.x.fract(), point.y.fract(), point.z.fract());
     }
-    sample_noise_value(noise, point, surface.seed() ^ face_seed(face))
+    let seed = match surface.domain {
+        SurfaceDomain::FaceUv => surface.seed() ^ face_seed(face),
+        SurfaceDomain::BlockSpace => surface.seed(),
+    };
+    sample_noise_value(noise, point, seed)
 }
 
 fn sample_warp_vector(point: Vec3, warp: &WarpSpec, seed: u32) -> Vec3 {
@@ -1113,7 +1113,6 @@ fn derive_normal_from_height(
     height: &[f32],
     size: u32,
     tile_mode: TileMode,
-    normal_format: NormalFormat,
     strength: f32,
 ) -> Vec<Vec3> {
     let mut normals = vec![Vec3::Z; height.len()];
@@ -1134,11 +1133,8 @@ fn derive_normal_from_height(
             let hy1 = sample(x, y + 1);
             let dx = hx1 - hx0;
             let dy = hy1 - hy0;
-            let mut normal = Vec3::new(-dx * strength, -dy * strength, 1.0).normalize_or_zero();
-            if normal_format == NormalFormat::OpenGl {
-                normal.y = -normal.y;
-            }
-            normals[y as usize * size as usize + x as usize] = normal;
+            normals[y as usize * size as usize + x as usize] =
+                Vec3::new(-dx * strength, -dy * strength, 1.0).normalize_or_zero();
         }
     }
     normals
@@ -1325,11 +1321,7 @@ fn encode_normal_layers(
     for layer in layers {
         for mip in 0..layer.normal.len() {
             for value in getter(layer, mip) {
-                let encoded = encode_normal(*value, normal_format);
-                bytes.push((encoded.x.clamp(0.0, 1.0) * 255.0).round() as u8);
-                bytes.push((encoded.y.clamp(0.0, 1.0) * 255.0).round() as u8);
-                bytes.push((encoded.z.clamp(0.0, 1.0) * 255.0).round() as u8);
-                bytes.push(255);
+                bytes.extend_from_slice(&encode_normal_rgba8(*value, normal_format));
             }
         }
     }
@@ -1362,6 +1354,16 @@ fn linear_to_srgb_u8(value: f32) -> u8 {
     (srgb.clamp(0.0, 1.0) * 255.0).round() as u8
 }
 
+pub(crate) fn encode_normal_rgba8(value: Vec3, normal_format: NormalFormat) -> [u8; 4] {
+    let encoded = encode_normal(value, normal_format);
+    [
+        (encoded.x.clamp(0.0, 1.0) * 255.0).round() as u8,
+        (encoded.y.clamp(0.0, 1.0) * 255.0).round() as u8,
+        (encoded.z.clamp(0.0, 1.0) * 255.0).round() as u8,
+        255,
+    ]
+}
+
 fn encode_normal(value: Vec3, normal_format: NormalFormat) -> Vec3 {
     let mut value = value.normalize_or_zero();
     if normal_format == NormalFormat::OpenGl {
@@ -1377,7 +1379,7 @@ fn encode_normal(value: Vec3, normal_format: NormalFormat) -> Vec3 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::compiler::compile_texture_set;
+    use crate::compiler::{compile_texture_set, NoiseBasis, NoiseFractal, WarpSpec};
 
     #[test]
     fn generated_runtime_assets_include_registry_faces() {
@@ -1421,5 +1423,81 @@ mod tests {
         assert_eq!(runtime.generated.layers.len(), 6);
         assert!(runtime.registry.get("dirt_block").is_some());
         assert_eq!(runtime.pack_data.layer_count, 6);
+    }
+
+    #[test]
+    fn normal_encoding_applies_format_once_after_derivation() {
+        let height = vec![0.0, 0.0, 1.0, 1.0];
+        let normal = derive_normal_from_height(&height, 2, TileMode::Clamp, 1.0)[0];
+        let directx = encode_normal(normal, NormalFormat::DirectX);
+        let opengl = encode_normal(normal, NormalFormat::OpenGl);
+
+        assert_eq!(directx.x, opengl.x);
+        assert_eq!(directx.z, opengl.z);
+        assert!(directx.y < 0.5);
+        assert!(opengl.y > 0.5);
+    }
+
+    #[test]
+    fn block_space_noise_is_face_invariant() {
+        let bytes = br##"{
+          "spec": "cruft.procedural_texture",
+          "spec_version": "1.0.0",
+          "profile": "voxel_cube_pbr",
+          "output": {"size": 16},
+          "surfaces": {
+            "stone": {
+              "domain": "block_space",
+              "base": {
+                "albedo": {
+                  "mode": "constant",
+                  "value": "#808080"
+                }
+              }
+            }
+          },
+          "textures": {
+            "stone_block": {
+              "faces": {
+                "all": "stone"
+              }
+            }
+          }
+        }"##;
+        let compiled = compile_texture_set("/tmp/test.texture.json", bytes).expect("compile");
+        let surface = compiled.surfaces.get("stone").expect("surface exists");
+        let noise = NoiseSpec {
+            basis: NoiseBasis::Gradient,
+            fractal: NoiseFractal::None,
+            scale: 1.0,
+            stretch: [1.0, 1.0, 1.0],
+            octaves: 1,
+            lacunarity: 2.0,
+            gain: 0.5,
+            offset: [0.0, 0.0, 0.0],
+            seed_offset: 17,
+            cellular_return: None,
+            warp: WarpSpec {
+                amplitude: 0.0,
+                basis: NoiseBasis::Gradient,
+                fractal: NoiseFractal::Fbm,
+                scale_multiplier: 1.0,
+                octaves: 2,
+                lacunarity: 2.0,
+                gain: 0.5,
+                seed_offset: 4096,
+            },
+        };
+        let coord = PixelCoord {
+            u: 0.25,
+            v: 0.5,
+            x: 0.0,
+            y: 0.5,
+            z: 0.25,
+        };
+
+        let top = sample_noise(surface, &noise, &coord, CubeFace::Top);
+        let west = sample_noise(surface, &noise, &coord, CubeFace::West);
+        assert_eq!(top, west);
     }
 }
