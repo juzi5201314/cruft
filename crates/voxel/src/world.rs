@@ -810,3 +810,89 @@ fn ensure_generated_chunk(world: &VoxelWorld, key: ChunkKey) {
     // 生成只做一次；保持 generation，用于后续 meshing。
     chunk.clear_dirty();
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    type UploadQueueSnapshot = (u64, u32, Option<Vec<u64>>, Vec<(u32, Vec<u64>)>);
+
+    fn upload_queue_snapshot(uploads: &VoxelQuadUploadQueue) -> UploadQueueSnapshot {
+        let full = uploads
+            .full
+            .as_ref()
+            .map(|full| full.iter().copied().collect());
+        let updates = uploads
+            .updates
+            .iter()
+            .map(|update| (update.offset, update.data.iter().copied().collect()))
+            .collect();
+        (uploads.epoch, uploads.quad_capacity, full, updates)
+    }
+
+    #[test]
+    fn incremental_upload_queue_unchanged_on_meta_only_update() {
+        let mut app = App::new();
+        app.init_resource::<VoxelQuadArena>();
+        app.init_resource::<VoxelQuadUploadQueue>();
+        app.add_systems(Update, sync_upload_queue_system);
+
+        let chunk_key = ChunkKey::new(0, 0, 0);
+        let entity = app
+            .world_mut()
+            .spawn((
+                chunk_key,
+                ChunkBounds::from_key(chunk_key),
+                ChunkDrawRange {
+                    opaque_offset: 5,
+                    opaque_len: 3,
+                    ..Default::default()
+                },
+            ))
+            .id();
+
+        {
+            let mut uploads = app.world_mut().resource_mut::<VoxelQuadUploadQueue>();
+            uploads.epoch = 17;
+            uploads.quad_capacity = 64;
+            uploads.full = None;
+            uploads.updates = Arc::from(
+                vec![VoxelQuadUploadOp {
+                    offset: 5,
+                    data: Arc::from(vec![11_u64, 12, 13].into_boxed_slice()),
+                }]
+                .into_boxed_slice(),
+            );
+        }
+
+        let before = {
+            let uploads = app.world().resource::<VoxelQuadUploadQueue>();
+            upload_queue_snapshot(uploads)
+        };
+
+        app.update();
+
+        let after_idle_sync = {
+            let uploads = app.world().resource::<VoxelQuadUploadQueue>();
+            upload_queue_snapshot(uploads)
+        };
+        assert_eq!(after_idle_sync, before);
+
+        app.world_mut().entity_mut(entity).insert(ChunkDrawRange {
+            opaque_offset: 5,
+            opaque_len: 3,
+            cutout_offset: 9,
+            cutout_len: 4,
+            transparent_offset: 21,
+            transparent_len: 2,
+        });
+
+        app.update();
+
+        let after_meta_only_update = {
+            let uploads = app.world().resource::<VoxelQuadUploadQueue>();
+            upload_queue_snapshot(uploads)
+        };
+        assert_eq!(after_meta_only_update, before);
+    }
+}
