@@ -1,4 +1,17 @@
-const CHUNK_META_STRIDE: u32 = 12u;
+const CHUNK_META_STRIDE: u32 = 16u;
+const CHUNK_META_MIN_X_OFFSET: u32 = 4u;
+const CHUNK_META_MAX_X_OFFSET: u32 = 8u;
+const CHUNK_META_OPAQUE_LEN_OFFSET: u32 = 7u;
+const VOXEL_DRAW_RECORD_STRIDE: u32 = 4u;
+const VOXEL_DRAW_VERTEX_COUNT_OFFSET: u32 = 0u;
+const VOXEL_DRAW_INSTANCE_COUNT_OFFSET: u32 = 1u;
+const VOXEL_DRAW_FIRST_VERTEX_OFFSET: u32 = 2u;
+const VOXEL_DRAW_FIRST_INSTANCE_OFFSET: u32 = 3u;
+const PER_VIEW_COUNTERS_STRIDE: u32 = 4u;
+const PER_VIEW_VISIBLE_CHUNK_COUNT_OFFSET: u32 = 0u;
+const PER_VIEW_FLAGS_OFFSET: u32 = 1u;
+const PER_VIEW_RESERVED0_OFFSET: u32 = 2u;
+const PER_VIEW_RESERVED1_OFFSET: u32 = 3u;
 const WORKGROUP_SIZE: u32 = 64u;
 
 struct CullingUniform {
@@ -13,8 +26,9 @@ struct CullingUniform {
 
 @group(0) @binding(0) var<uniform> culling: CullingUniform;
 
-// chunk_meta 固定 stride=12*u32：
-// [origin.xyz(i32), opaque_offset(u32), min.xyz(i32), opaque_len(u32), max.xyz(i32), reserved]
+// chunk_meta 固定 stride=16*u32：
+// [origin.xyz(i32), opaque_offset(u32), min.xyz(i32), opaque_len(u32), max.xyz(i32),
+//  cutout_offset(u32), cutout_len(u32), flags(u32), reserved0(u32), reserved1(u32)]
 @group(0) @binding(1) var<storage, read> chunk_meta: array<u32>;
 @group(0) @binding(2) var<storage, read_write> indirect: array<u32>;
 @group(0) @binding(3) var depth_pyramid: texture_2d<f32>;
@@ -33,24 +47,24 @@ fn chunk_meta_base(chunk_index: u32) -> u32 {
 fn chunk_min(chunk_index: u32) -> vec3<f32> {
     let base = chunk_meta_base(chunk_index);
     return vec3<f32>(
-        f32(bitcast<i32>(chunk_meta[base + 4u])),
-        f32(bitcast<i32>(chunk_meta[base + 5u])),
-        f32(bitcast<i32>(chunk_meta[base + 6u])),
+        f32(bitcast<i32>(chunk_meta[base + CHUNK_META_MIN_X_OFFSET + 0u])),
+        f32(bitcast<i32>(chunk_meta[base + CHUNK_META_MIN_X_OFFSET + 1u])),
+        f32(bitcast<i32>(chunk_meta[base + CHUNK_META_MIN_X_OFFSET + 2u])),
     );
 }
 
 fn chunk_max(chunk_index: u32) -> vec3<f32> {
     let base = chunk_meta_base(chunk_index);
     return vec3<f32>(
-        f32(bitcast<i32>(chunk_meta[base + 8u])),
-        f32(bitcast<i32>(chunk_meta[base + 9u])),
-        f32(bitcast<i32>(chunk_meta[base + 10u])),
+        f32(bitcast<i32>(chunk_meta[base + CHUNK_META_MAX_X_OFFSET + 0u])),
+        f32(bitcast<i32>(chunk_meta[base + CHUNK_META_MAX_X_OFFSET + 1u])),
+        f32(bitcast<i32>(chunk_meta[base + CHUNK_META_MAX_X_OFFSET + 2u])),
     );
 }
 
 fn chunk_opaque_len(chunk_index: u32) -> u32 {
     let base = chunk_meta_base(chunk_index);
-    return chunk_meta[base + 7u];
+    return chunk_meta[base + CHUNK_META_OPAQUE_LEN_OFFSET];
 }
 
 fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
@@ -187,9 +201,9 @@ fn cull(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
 
     // DrawIndirectArgs: [vertex_count, instance_count, first_vertex, first_instance]
-    let cmd_base = chunk_index * 4u;
-    indirect[cmd_base + 0u] = 6u;
-    indirect[cmd_base + 1u] = select(0u, opaque_len, visible);
-    indirect[cmd_base + 2u] = chunk_index * 6u;
-    indirect[cmd_base + 3u] = 0u;
+    let cmd_base = chunk_index * VOXEL_DRAW_RECORD_STRIDE;
+    indirect[cmd_base + VOXEL_DRAW_VERTEX_COUNT_OFFSET] = 6u;
+    indirect[cmd_base + VOXEL_DRAW_INSTANCE_COUNT_OFFSET] = select(0u, opaque_len, visible);
+    indirect[cmd_base + VOXEL_DRAW_FIRST_VERTEX_OFFSET] = chunk_index * 6u;
+    indirect[cmd_base + VOXEL_DRAW_FIRST_INSTANCE_OFFSET] = 0u;
 }

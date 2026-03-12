@@ -5,7 +5,7 @@
 //! - GPU frustum culling（compute 生成 indirect 命令）
 //! - MDI/间接绘制提交（单次或少量 API 调用绘制所有 chunk）
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use bevy::{
     core_pipeline::core_3d::{graph::Core3d, graph::Node3d, CORE_3D_DEPTH_FORMAT},
@@ -45,7 +45,18 @@ const CULL_SHADER_ASSET_PATH: &str = "shaders/voxel_cull.wgsl";
 const VOXEL_SAMPLING_ENV: &str = "CRUFT_VOXEL_SAMPLING";
 const MAX_MATERIAL_KEYS: usize = 256;
 const MATERIAL_TABLE_STRIDE_U32: usize = 32;
-const CHUNK_META_STRIDE_U32: usize = 12;
+const CHUNK_META_V2_STRIDE_U32: usize = 16;
+#[allow(
+    dead_code,
+    reason = "VisibleChunkRecord ABI 常量在后续 compaction 消费阶段使用"
+)]
+const VISIBLE_CHUNK_RECORD_STRIDE_U32: usize = 4;
+const VOXEL_DRAW_RECORD_STRIDE_U32: usize = 4;
+#[allow(
+    dead_code,
+    reason = "Per-view counters/flags ABI 常量在后续 HZB/compaction 任务使用"
+)]
+const PER_VIEW_COUNTERS_STRIDE_U32: usize = 4;
 const CULL_WORKGROUP_SIZE: u32 = 64;
 
 #[derive(Resource, Clone)]
@@ -96,12 +107,150 @@ impl Default for VoxelCullingUniform {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct ChunkMetaCpu {
+struct ChunkMetaV2 {
     origin: IVec3,
     min: IVec3,
     max: IVec3,
     opaque_offset: u32,
     opaque_len: u32,
+    cutout_offset: u32,
+    cutout_len: u32,
+    flags: u32,
+    reserved0: u32,
+    reserved1: u32,
+}
+
+impl ChunkMetaV2 {
+    const ORIGIN_X_OFFSET: usize = 0;
+    const ORIGIN_Y_OFFSET: usize = 1;
+    const ORIGIN_Z_OFFSET: usize = 2;
+    const OPAQUE_OFFSET_OFFSET: usize = 3;
+    const MIN_X_OFFSET: usize = 4;
+    const MIN_Y_OFFSET: usize = 5;
+    const MIN_Z_OFFSET: usize = 6;
+    const OPAQUE_LEN_OFFSET: usize = 7;
+    const MAX_X_OFFSET: usize = 8;
+    const MAX_Y_OFFSET: usize = 9;
+    const MAX_Z_OFFSET: usize = 10;
+    const CUTOUT_OFFSET_OFFSET: usize = 11;
+    const CUTOUT_LEN_OFFSET: usize = 12;
+    const FLAGS_OFFSET: usize = 13;
+    const RESERVED0_OFFSET: usize = 14;
+    const RESERVED1_OFFSET: usize = 15;
+
+    fn to_words(self) -> [u32; CHUNK_META_V2_STRIDE_U32] {
+        let mut words = [0u32; CHUNK_META_V2_STRIDE_U32];
+        words[Self::ORIGIN_X_OFFSET] = self.origin.x as u32;
+        words[Self::ORIGIN_Y_OFFSET] = self.origin.y as u32;
+        words[Self::ORIGIN_Z_OFFSET] = self.origin.z as u32;
+        words[Self::OPAQUE_OFFSET_OFFSET] = self.opaque_offset;
+        words[Self::MIN_X_OFFSET] = self.min.x as u32;
+        words[Self::MIN_Y_OFFSET] = self.min.y as u32;
+        words[Self::MIN_Z_OFFSET] = self.min.z as u32;
+        words[Self::OPAQUE_LEN_OFFSET] = self.opaque_len;
+        words[Self::MAX_X_OFFSET] = self.max.x as u32;
+        words[Self::MAX_Y_OFFSET] = self.max.y as u32;
+        words[Self::MAX_Z_OFFSET] = self.max.z as u32;
+        words[Self::CUTOUT_OFFSET_OFFSET] = self.cutout_offset;
+        words[Self::CUTOUT_LEN_OFFSET] = self.cutout_len;
+        words[Self::FLAGS_OFFSET] = self.flags;
+        words[Self::RESERVED0_OFFSET] = self.reserved0;
+        words[Self::RESERVED1_OFFSET] = self.reserved1;
+        words
+    }
+}
+
+#[allow(
+    dead_code,
+    reason = "VisibleChunkRecord ABI 先锁合同，后续任务再接入 compaction 消费"
+)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct VisibleChunkRecord {
+    chunk_index: u32,
+    layer_mask: u32,
+    draw_record_base: u32,
+    reserved: u32,
+}
+
+#[allow(
+    dead_code,
+    reason = "VisibleChunkRecord ABI 先锁合同，后续任务再接入 compaction 消费"
+)]
+impl VisibleChunkRecord {
+    const CHUNK_INDEX_OFFSET: usize = 0;
+    const LAYER_MASK_OFFSET: usize = 1;
+    const DRAW_RECORD_BASE_OFFSET: usize = 2;
+    const RESERVED_OFFSET: usize = 3;
+
+    fn to_words(self) -> [u32; VISIBLE_CHUNK_RECORD_STRIDE_U32] {
+        [
+            self.chunk_index,
+            self.layer_mask,
+            self.draw_record_base,
+            self.reserved,
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct VoxelDrawRecord {
+    chunk_meta_index: u32,
+    first_instance: u32,
+    layer_mask: u32,
+    reserved: u32,
+}
+
+impl VoxelDrawRecord {
+    const CHUNK_META_INDEX_OFFSET: usize = 0;
+    const FIRST_INSTANCE_OFFSET: usize = 1;
+    #[cfg(test)]
+    const LAYER_MASK_OFFSET: usize = 2;
+    #[cfg(test)]
+    const RESERVED_OFFSET: usize = 3;
+
+    fn to_words(self) -> [u32; VOXEL_DRAW_RECORD_STRIDE_U32] {
+        [
+            self.chunk_meta_index,
+            self.first_instance,
+            self.layer_mask,
+            self.reserved,
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct VoxelIndirectArgs {
+    vertex_count: u32,
+    instance_count: u32,
+    first_vertex: u32,
+    first_instance: u32,
+}
+
+impl VoxelIndirectArgs {
+    const VERTEX_COUNT_OFFSET: usize = 0;
+    const INSTANCE_COUNT_OFFSET: usize = 1;
+    const FIRST_VERTEX_OFFSET: usize = 2;
+    const FIRST_INSTANCE_OFFSET: usize = 3;
+
+    fn to_words(self) -> [u32; VOXEL_DRAW_RECORD_STRIDE_U32] {
+        [
+            self.vertex_count,
+            self.instance_count,
+            self.first_vertex,
+            self.first_instance,
+        ]
+    }
+}
+
+#[allow(
+    dead_code,
+    reason = "Per-view counters/flags ABI 先锁固定 stride，后续任务再接入读写行为"
+)]
+mod per_view_counters_layout {
+    pub(super) const VISIBLE_CHUNK_COUNT_OFFSET: usize = 0;
+    pub(super) const FLAGS_OFFSET: usize = 1;
+    pub(super) const RESERVED0_OFFSET: usize = 2;
+    pub(super) const RESERVED1_OFFSET: usize = 3;
 }
 
 #[derive(Resource)]
@@ -110,14 +259,11 @@ struct VoxelGpuBuffers {
     quads_u32: RawBufferVec<u32>,
     /// 运行时材质表：按 material_id 索引，每项固定 32 个 u32。
     material_table_u32: RawBufferVec<u32>,
-    /// chunk 元数据表，固定 stride=12*u32（见 `voxel_quads.wgsl` / `voxel_cull.wgsl`）。
+    /// chunk 元数据表，固定 stride=16*u32（见 `voxel_quads.wgsl` / `voxel_cull.wgsl`）。
     chunk_meta_u32: RawBufferVec<u32>,
-    /// DrawIndirectArgs 序列（每 chunk 一条，4*u32）。
-    indirect_u32: RawBufferVec<u32>,
-    culling_uniform: UniformBuffer<VoxelCullingUniform>,
+    draw_records_u32: RawBufferVec<u32>,
     uploaded_epoch: u64,
     last_material_table: Vec<u32>,
-    chunk_count: u32,
 }
 
 impl Default for VoxelGpuBuffers {
@@ -128,18 +274,22 @@ impl Default for VoxelGpuBuffers {
         material_table_u32.set_label(Some("voxel_material_table_u32"));
         let mut chunk_meta_u32 = RawBufferVec::new(BufferUsages::STORAGE);
         chunk_meta_u32.set_label(Some("voxel_chunk_meta_u32"));
-        let mut indirect_u32 = RawBufferVec::new(BufferUsages::INDIRECT | BufferUsages::STORAGE);
-        indirect_u32.set_label(Some("voxel_indirect_u32"));
+        let mut draw_records_u32 = RawBufferVec::new(BufferUsages::STORAGE);
+        draw_records_u32.set_label(Some("voxel_draw_records_u32"));
         Self {
             quads_u32,
             material_table_u32,
             chunk_meta_u32,
-            indirect_u32,
-            culling_uniform: UniformBuffer::default(),
+            draw_records_u32,
             uploaded_epoch: 0,
             last_material_table: Vec::new(),
-            chunk_count: 0,
         }
+    }
+}
+
+impl VoxelGpuBuffers {
+    fn chunk_count(&self) -> u32 {
+        (self.draw_records_u32.len() / VOXEL_DRAW_RECORD_STRIDE_U32) as u32
     }
 }
 
@@ -158,9 +308,109 @@ struct VoxelRenderPipeline {
 
 #[derive(Resource, Default)]
 struct VoxelRenderBindGroups {
-    view: Option<BindGroup>,
     voxel: Option<BindGroup>,
+}
+
+#[derive(Default)]
+struct VoxelViewBindGroups {
+    view: Option<BindGroup>,
     culling: Option<BindGroup>,
+}
+
+#[allow(
+    dead_code,
+    reason = "Cutout layer is kept as a per-view placeholder for follow-up render tasks"
+)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum VoxelDrawLayer {
+    Opaque,
+    Cutout,
+}
+
+#[allow(
+    dead_code,
+    reason = "Per-view placeholder handles/counters are reserved for follow-up GPU culling tasks"
+)]
+struct VoxelViewState {
+    culling_uniform: UniformBuffer<VoxelCullingUniform>,
+    bind_groups: VoxelViewBindGroups,
+    previous_depth_texture: Option<TextureView>,
+    previous_hzb_texture: Option<TextureView>,
+    visible_chunk_list: Option<Buffer>,
+    visible_chunk_counter: Option<Buffer>,
+    indirect_u32_by_layer: HashMap<VoxelDrawLayer, RawBufferVec<u32>>,
+}
+
+impl Default for VoxelViewState {
+    fn default() -> Self {
+        let mut indirect_u32_by_layer = HashMap::new();
+        indirect_u32_by_layer.insert(
+            VoxelDrawLayer::Opaque,
+            new_view_indirect_buffer(VoxelDrawLayer::Opaque),
+        );
+        Self {
+            culling_uniform: UniformBuffer::default(),
+            bind_groups: VoxelViewBindGroups::default(),
+            previous_depth_texture: None,
+            previous_hzb_texture: None,
+            visible_chunk_list: None,
+            visible_chunk_counter: None,
+            indirect_u32_by_layer,
+        }
+    }
+}
+
+impl VoxelViewState {
+    fn indirect_u32(&self, layer: VoxelDrawLayer) -> Option<&RawBufferVec<u32>> {
+        self.indirect_u32_by_layer.get(&layer)
+    }
+
+    fn indirect_u32_mut(&mut self, layer: VoxelDrawLayer) -> &mut RawBufferVec<u32> {
+        self.indirect_u32_by_layer
+            .entry(layer)
+            .or_insert_with(|| new_view_indirect_buffer(layer))
+    }
+}
+
+#[derive(Resource, Default)]
+struct VoxelViewStates {
+    by_entity: HashMap<Entity, VoxelViewState>,
+}
+
+impl VoxelViewStates {
+    fn sync_active_views(&mut self, active_views: impl IntoIterator<Item = Entity>) {
+        let active_views = HashSet::<Entity>::from_iter(active_views);
+        self.by_entity
+            .retain(|entity, _| active_views.contains(entity));
+        for entity in active_views {
+            self.by_entity.entry(entity).or_default();
+        }
+    }
+
+    fn view_state(&self, entity: Entity) -> Option<&VoxelViewState> {
+        self.by_entity.get(&entity)
+    }
+
+    fn view_state_mut(&mut self, entity: Entity) -> &mut VoxelViewState {
+        self.by_entity.entry(entity).or_default()
+    }
+
+    fn clear_bind_groups(&mut self) {
+        for state in self.by_entity.values_mut() {
+            state.bind_groups.view = None;
+            state.bind_groups.culling = None;
+        }
+    }
+}
+
+fn new_view_indirect_buffer(layer: VoxelDrawLayer) -> RawBufferVec<u32> {
+    let mut indirect_u32 = RawBufferVec::new(BufferUsages::INDIRECT | BufferUsages::STORAGE);
+    let label = match layer {
+        VoxelDrawLayer::Opaque => "voxel_view_opaque_indirect_u32",
+        VoxelDrawLayer::Cutout => "voxel_view_cutout_indirect_u32",
+    };
+    indirect_u32.set_label(Some(label));
+    indirect_u32
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
@@ -183,6 +433,7 @@ impl Plugin for VoxelRenderPlugin {
         render_app
             .init_resource::<VoxelGpuBuffers>()
             .init_resource::<VoxelRenderBindGroups>()
+            .init_resource::<VoxelViewStates>()
             .add_systems(RenderStartup, init_voxel_render_pipeline)
             .add_systems(
                 Render,
@@ -282,7 +533,8 @@ fn init_voxel_render_pipeline(
         &BindGroupLayoutEntries::sequential(
             ShaderStages::VERTEX_FRAGMENT,
             (
-                // chunk 元数据表（stride=12*u32）。
+                // chunk 元数据表（stride=16*u32）。
+                storage_buffer_read_only::<u32>(false),
                 storage_buffer_read_only::<u32>(false),
                 // quad buffer：array<u32>，按 2 u32 / quad。
                 storage_buffer_read_only::<u32>(false),
@@ -368,6 +620,7 @@ fn init_voxel_render_pipeline(
 )]
 fn prepare_voxel_gpu_buffers(
     views: Query<(
+        Entity,
         &ExtractedView,
         &ViewTarget,
         &Msaa,
@@ -377,6 +630,7 @@ fn prepare_voxel_gpu_buffers(
     material_table: Option<Res<ExtractedVoxelMaterialTable>>,
     chunks: Query<(&ChunkKey, &ChunkBounds, &ChunkDrawRange)>,
     mut buffers: ResMut<VoxelGpuBuffers>,
+    mut view_states: ResMut<VoxelViewStates>,
     mut pipeline: ResMut<VoxelRenderPipeline>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -390,159 +644,177 @@ fn prepare_voxel_gpu_buffers(
         &render_queue,
     );
 
-    let Ok((view, view_target, msaa, view_depth_pyramid)) = views.single() else {
-        return;
-    };
-    let clip_from_world = view
-        .clip_from_world
-        .unwrap_or_else(|| view.clip_from_view * view.world_from_view.to_matrix().inverse());
-
-    let mut entries = collect_chunk_meta_entries(&chunks);
-    entries.sort_by_key(|(key, _)| *key);
-    buffers.chunk_count = entries.len() as u32;
-
+    let entries = collect_chunk_meta_entries(chunks.iter());
     sync_chunk_meta_buffer(&entries, &mut buffers, &render_device, &render_queue);
-    ensure_indirect_capacity(
-        buffers.chunk_count,
-        &mut buffers.indirect_u32,
-        &render_device,
-        &render_queue,
-    );
+    sync_draw_records_buffer(&entries, &mut buffers, &render_device, &render_queue);
+    let chunk_count = buffers.chunk_count();
 
-    let chunk_count = buffers.chunk_count;
-    let (hzb_mip_count, hzb_enabled, hzb_size) = match view_depth_pyramid {
-        Some(depth_pyramid) if depth_pyramid.mip_count > 0 => {
-            let viewport = view.viewport.zw();
-            let mip0 = UVec2::new(viewport.x.div_ceil(2), viewport.y.div_ceil(2)).max(UVec2::ONE);
-            (depth_pyramid.mip_count, 1, mip0)
-        }
-        _ => (0, 0, UVec2::ONE),
-    };
-    buffers.culling_uniform.set(VoxelCullingUniform {
-        clip_from_world,
-        chunk_count,
-        hzb_mip_count,
-        hzb_enabled,
-        _pad0: 0,
-        hzb_size,
-        _pad1: UVec2::ZERO,
-    });
-    if chunk_count > 0 {
-        buffers
-            .culling_uniform
-            .write_buffer(&render_device, &render_queue);
-    }
+    let active_views: Vec<_> = views.iter().map(|(entity, ..)| entity).collect();
+    view_states.sync_active_views(active_views.iter().copied());
 
-    // pipeline 热身阶段 fallback：compute pipeline 未就绪时用 CPU 先填 indirect。
-    if pipeline_cache
+    let compute_pipeline_ready = pipeline_cache
         .get_compute_pipeline(pipeline.culling_pipeline)
-        .is_none()
-    {
-        build_indirect_cpu_fallback(
-            &entries,
+        .is_some();
+
+    for (view_entity, view, view_target, msaa, view_depth_pyramid) in &views {
+        let clip_from_world = view
+            .clip_from_world
+            .unwrap_or_else(|| view.clip_from_view * view.world_from_view.to_matrix().inverse());
+
+        let view_state = view_states.view_state_mut(view_entity);
+
+        let (hzb_mip_count, hzb_enabled, hzb_size) = match view_depth_pyramid {
+            Some(depth_pyramid) if depth_pyramid.mip_count > 0 => {
+                let viewport = view.viewport.zw();
+                let mip0 =
+                    UVec2::new(viewport.x.div_ceil(2), viewport.y.div_ceil(2)).max(UVec2::ONE);
+                (depth_pyramid.mip_count, 1, mip0)
+            }
+            _ => (0, 0, UVec2::ONE),
+        };
+        view_state.culling_uniform.set(VoxelCullingUniform {
             clip_from_world,
-            &mut buffers.indirect_u32,
-            &render_device,
-            &render_queue,
-        );
-    }
-
-    // pipeline：按 view format + msaa samples 做最小特化。
-    let format = view_target.main_texture_format();
-    let samples = msaa.samples();
-
-    if !pipeline.pipelines.contains_key(&(format, samples)) {
-        let view_layout = pipeline.view_layout.clone();
-        let voxel_layout = pipeline.voxel_layout.clone();
-        let shader = pipeline.shader.clone();
-        let id = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-            label: Some("voxel_quads_pipeline".into()),
-            layout: vec![view_layout, voxel_layout],
-            vertex: VertexState {
-                shader: shader.clone(),
-                entry_point: Some("vertex".into()),
-                shader_defs: vec![],
-                buffers: vec![],
-            },
-            fragment: Some(FragmentState {
-                shader,
-                entry_point: Some("fragment".into()),
-                shader_defs: vec![],
-                targets: vec![Some(ColorTargetState {
-                    format,
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            primitive: PrimitiveState {
-                topology: PrimitiveTopology::TriangleList,
-                cull_mode: Some(Face::Back),
-                ..default()
-            },
-            depth_stencil: Some(DepthStencilState {
-                format: CORE_3D_DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::GreaterEqual,
-                stencil: StencilState::default(),
-                bias: DepthBiasState::default(),
-            }),
-            multisample: MultisampleState {
-                count: samples,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: true,
+            chunk_count,
+            hzb_mip_count,
+            hzb_enabled,
+            _pad0: 0,
+            hzb_size,
+            _pad1: UVec2::ZERO,
         });
-        pipeline.pipelines.insert((format, samples), id);
+        if chunk_count > 0 {
+            view_state
+                .culling_uniform
+                .write_buffer(&render_device, &render_queue);
+        }
+
+        {
+            let indirect_u32 = view_state.indirect_u32_mut(VoxelDrawLayer::Opaque);
+            ensure_indirect_capacity(chunk_count, indirect_u32, &render_device, &render_queue);
+
+            // pipeline 热身阶段 fallback：compute pipeline 未就绪时用 CPU 先填 indirect。
+            if !compute_pipeline_ready {
+                build_indirect_cpu_fallback(
+                    &entries,
+                    buffers.draw_records_u32.values().as_slice(),
+                    clip_from_world,
+                    indirect_u32,
+                    &render_device,
+                    &render_queue,
+                );
+            }
+        }
+
+        // pipeline：按 view format + msaa samples 做最小特化。
+        let format = view_target.main_texture_format();
+        let samples = msaa.samples();
+
+        if !pipeline.pipelines.contains_key(&(format, samples)) {
+            let view_layout = pipeline.view_layout.clone();
+            let voxel_layout = pipeline.voxel_layout.clone();
+            let shader = pipeline.shader.clone();
+            let id = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
+                label: Some("voxel_quads_pipeline".into()),
+                layout: vec![view_layout, voxel_layout],
+                vertex: VertexState {
+                    shader: shader.clone(),
+                    entry_point: Some("vertex".into()),
+                    shader_defs: vec![],
+                    buffers: vec![],
+                },
+                fragment: Some(FragmentState {
+                    shader,
+                    entry_point: Some("fragment".into()),
+                    shader_defs: vec![],
+                    targets: vec![Some(ColorTargetState {
+                        format,
+                        blend: None,
+                        write_mask: ColorWrites::ALL,
+                    })],
+                }),
+                primitive: PrimitiveState {
+                    topology: PrimitiveTopology::TriangleList,
+                    cull_mode: Some(Face::Back),
+                    ..default()
+                },
+                depth_stencil: Some(DepthStencilState {
+                    format: CORE_3D_DEPTH_FORMAT,
+                    depth_write_enabled: true,
+                    depth_compare: CompareFunction::GreaterEqual,
+                    stencil: StencilState::default(),
+                    bias: DepthBiasState::default(),
+                }),
+                multisample: MultisampleState {
+                    count: samples,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                push_constant_ranges: vec![],
+                zero_initialize_workgroup_memory: true,
+            });
+            pipeline.pipelines.insert((format, samples), id);
+        }
     }
 }
 
-fn collect_chunk_meta_entries(
-    chunks: &Query<(&ChunkKey, &ChunkBounds, &ChunkDrawRange)>,
-) -> Vec<(ChunkKey, ChunkMetaCpu)> {
+fn collect_chunk_meta_entries<'a>(
+    chunks: impl IntoIterator<Item = (&'a ChunkKey, &'a ChunkBounds, &'a ChunkDrawRange)>,
+) -> Vec<(ChunkKey, ChunkMetaV2)> {
     let mut out = Vec::new();
-    for (key, bounds, range) in chunks.iter() {
-        if range.opaque_len == 0 {
+    for (key, bounds, range) in chunks {
+        if range.opaque_len == 0 && range.cutout_len == 0 {
             continue;
         }
         out.push((
             *key,
-            ChunkMetaCpu {
+            ChunkMetaV2 {
                 origin: key.min_world_voxel(),
                 min: bounds.min,
                 max: bounds.max,
                 opaque_offset: range.opaque_offset,
                 opaque_len: range.opaque_len,
+                cutout_offset: range.cutout_offset,
+                cutout_len: range.cutout_len,
+                flags: 0,
+                reserved0: 0,
+                reserved1: 0,
             },
         ));
     }
+    out.sort_by_key(|(key, _)| *key);
     out
 }
 
-fn pack_chunk_meta_u32(entries: &[(ChunkKey, ChunkMetaCpu)]) -> Vec<u32> {
-    let mut packed = Vec::with_capacity(entries.len() * CHUNK_META_STRIDE_U32);
+fn pack_chunk_meta_u32(entries: &[(ChunkKey, ChunkMetaV2)]) -> Vec<u32> {
+    let mut packed = Vec::with_capacity(entries.len() * CHUNK_META_V2_STRIDE_U32);
     for (_, entry) in entries {
-        packed.extend_from_slice(&[
-            entry.origin.x as u32,
-            entry.origin.y as u32,
-            entry.origin.z as u32,
-            entry.opaque_offset,
-            entry.min.x as u32,
-            entry.min.y as u32,
-            entry.min.z as u32,
-            entry.opaque_len,
-            entry.max.x as u32,
-            entry.max.y as u32,
-            entry.max.z as u32,
-            0,
-        ]);
+        packed.extend_from_slice(&entry.to_words());
+    }
+    packed
+}
+
+fn build_draw_records(entries: &[(ChunkKey, ChunkMetaV2)]) -> Vec<VoxelDrawRecord> {
+    let mut draw_records = Vec::with_capacity(entries.len());
+    for (chunk_meta_index, (_, entry)) in entries.iter().enumerate() {
+        draw_records.push(VoxelDrawRecord {
+            chunk_meta_index: chunk_meta_index as u32,
+            first_instance: entry.opaque_offset,
+            layer_mask: 0b01,
+            reserved: 0,
+        });
+    }
+    draw_records
+}
+
+fn pack_draw_records_u32(draw_records: &[VoxelDrawRecord]) -> Vec<u32> {
+    let mut packed = Vec::with_capacity(draw_records.len() * VOXEL_DRAW_RECORD_STRIDE_U32);
+    for record in draw_records {
+        packed.extend_from_slice(&record.to_words());
     }
     packed
 }
 
 fn sync_chunk_meta_buffer(
-    entries: &[(ChunkKey, ChunkMetaCpu)],
+    entries: &[(ChunkKey, ChunkMetaV2)],
     buffers: &mut VoxelGpuBuffers,
     render_device: &RenderDevice,
     render_queue: &RenderQueue,
@@ -559,43 +831,95 @@ fn sync_chunk_meta_buffer(
     }
 }
 
+fn sync_draw_records_buffer(
+    entries: &[(ChunkKey, ChunkMetaV2)],
+    buffers: &mut VoxelGpuBuffers,
+    render_device: &RenderDevice,
+    render_queue: &RenderQueue,
+) {
+    let packed = pack_draw_records_u32(&build_draw_records(entries));
+    if buffers.draw_records_u32.values().as_slice() == packed.as_slice() {
+        return;
+    }
+    *buffers.draw_records_u32.values_mut() = packed;
+    if !buffers.draw_records_u32.values().is_empty() {
+        buffers
+            .draw_records_u32
+            .write_buffer(render_device, render_queue);
+    }
+}
+
 fn ensure_indirect_capacity(
     chunk_count: u32,
     indirect_u32: &mut RawBufferVec<u32>,
     render_device: &RenderDevice,
     render_queue: &RenderQueue,
 ) {
-    let target_len = (chunk_count as usize) * 4;
-    if indirect_u32.len() == target_len {
+    let target_len = (chunk_count as usize) * VOXEL_DRAW_RECORD_STRIDE_U32;
+    if !resize_indirect_buffer(indirect_u32, chunk_count) {
         return;
     }
-
-    indirect_u32.values_mut().resize(target_len, 0);
     if target_len > 0 {
         // 只做容量保障；命令内容由 compute pass 覆写。
         indirect_u32.write_buffer(render_device, render_queue);
     }
 }
 
+fn resize_indirect_buffer(indirect_u32: &mut RawBufferVec<u32>, chunk_count: u32) -> bool {
+    let target_len = (chunk_count as usize) * VOXEL_DRAW_RECORD_STRIDE_U32;
+    if indirect_u32.len() == target_len {
+        return false;
+    }
+
+    indirect_u32.values_mut().resize(target_len, 0);
+    true
+}
+
 fn build_indirect_cpu_fallback(
-    entries: &[(ChunkKey, ChunkMetaCpu)],
+    entries: &[(ChunkKey, ChunkMetaV2)],
+    draw_records: &[u32],
     clip_from_world: Mat4,
     indirect_u32: &mut RawBufferVec<u32>,
     render_device: &RenderDevice,
     render_queue: &RenderQueue,
 ) {
     let values = indirect_u32.values_mut();
-    values.resize(entries.len() * 4, 0);
-    for (i, (_, entry)) in entries.iter().enumerate() {
-        let visible = aabb_visible(clip_from_world, entry.min.as_vec3(), entry.max.as_vec3());
-        let base = i * 4;
-        values[base] = 6;
-        values[base + 1] = if visible { entry.opaque_len } else { 0 };
-        values[base + 2] = (i as u32) * 6;
-        values[base + 3] = 0;
-    }
+    fill_indirect_cpu_fallback(entries, draw_records, clip_from_world, values);
     if !values.is_empty() {
         indirect_u32.write_buffer(render_device, render_queue);
+    }
+}
+
+fn fill_indirect_cpu_fallback(
+    entries: &[(ChunkKey, ChunkMetaV2)],
+    draw_records: &[u32],
+    clip_from_world: Mat4,
+    values: &mut Vec<u32>,
+) {
+    let draw_record_count = draw_records.len() / VOXEL_DRAW_RECORD_STRIDE_U32;
+    values.resize(draw_record_count * VOXEL_DRAW_RECORD_STRIDE_U32, 0);
+    for draw_record_index in 0..draw_record_count {
+        let base = draw_record_index * VOXEL_DRAW_RECORD_STRIDE_U32;
+        let chunk_meta_index = draw_records[base + VoxelDrawRecord::CHUNK_META_INDEX_OFFSET];
+        let Some((_, entry)) = entries.get(chunk_meta_index as usize) else {
+            continue;
+        };
+        let visible = aabb_visible(clip_from_world, entry.min.as_vec3(), entry.max.as_vec3());
+        let draw = VoxelIndirectArgs {
+            vertex_count: 6,
+            instance_count: if visible { entry.opaque_len } else { 0 },
+            first_vertex: (draw_record_index as u32) * 6,
+            first_instance: draw_records[base + VoxelDrawRecord::FIRST_INSTANCE_OFFSET],
+        };
+        let words = draw.to_words();
+        values[base + VoxelIndirectArgs::VERTEX_COUNT_OFFSET] =
+            words[VoxelIndirectArgs::VERTEX_COUNT_OFFSET];
+        values[base + VoxelIndirectArgs::INSTANCE_COUNT_OFFSET] =
+            words[VoxelIndirectArgs::INSTANCE_COUNT_OFFSET];
+        values[base + VoxelIndirectArgs::FIRST_VERTEX_OFFSET] =
+            words[VoxelIndirectArgs::FIRST_VERTEX_OFFSET];
+        values[base + VoxelIndirectArgs::FIRST_INSTANCE_OFFSET] =
+            words[VoxelIndirectArgs::FIRST_INSTANCE_OFFSET];
     }
 }
 
@@ -738,71 +1062,75 @@ fn prepare_voxel_bind_groups(
     pipeline: Res<VoxelRenderPipeline>,
     buffers: Res<VoxelGpuBuffers>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<Option<&ViewDepthPyramid>, With<ExtractedView>>,
+    views: Query<(Entity, Option<&ViewDepthPyramid>), With<ExtractedView>>,
     runtime_packs: Option<Res<ExtractedTextureRuntimePacks>>,
     gpu_images: Res<bevy::render::render_asset::RenderAssets<GpuImage>>,
     render_device: Res<RenderDevice>,
     pipeline_cache: Res<PipelineCache>,
     mut bind_groups: ResMut<VoxelRenderBindGroups>,
+    mut view_states: ResMut<VoxelViewStates>,
 ) {
+    let active_views: Vec<_> = views.iter().map(|(entity, _)| entity).collect();
+    view_states.sync_active_views(active_views.iter().copied());
+
     let Some(view_binding) = view_uniforms.uniforms.binding() else {
-        bind_groups.view = None;
+        view_states.clear_bind_groups();
         return;
     };
-    bind_groups.view = Some(render_device.create_bind_group(
-        "voxel_view_bind_group",
-        &pipeline_cache.get_bind_group_layout(&pipeline.view_layout),
-        &BindGroupEntries::sequential((view_binding.clone(),)),
-    ));
 
     let Some(chunk_meta_binding) = buffers.chunk_meta_u32.binding() else {
         bind_groups.voxel = None;
-        bind_groups.culling = None;
+        view_states.clear_bind_groups();
+        return;
+    };
+    let Some(draw_records_binding) = buffers.draw_records_u32.binding() else {
+        bind_groups.voxel = None;
+        view_states.clear_bind_groups();
         return;
     };
     let Some(quad_binding) = buffers.quads_u32.binding() else {
         bind_groups.voxel = None;
-        bind_groups.culling = None;
+        view_states.clear_bind_groups();
         return;
     };
     let Some(material_table_binding) = buffers.material_table_u32.binding() else {
         bind_groups.voxel = None;
-        bind_groups.culling = None;
+        view_states.clear_bind_groups();
         return;
     };
     let Some(runtime_packs) = runtime_packs else {
         bind_groups.voxel = None;
-        bind_groups.culling = None;
+        view_states.clear_bind_groups();
         return;
     };
     let Some(pack) = runtime_packs.0.packs.first() else {
         bind_groups.voxel = None;
-        bind_groups.culling = None;
+        view_states.clear_bind_groups();
         return;
     };
     let Some(albedo_image) = gpu_images.get(&pack.albedo) else {
         bind_groups.voxel = None;
-        bind_groups.culling = None;
+        view_states.clear_bind_groups();
         return;
     };
     let Some(normal_image) = gpu_images.get(&pack.normal) else {
         bind_groups.voxel = None;
-        bind_groups.culling = None;
+        view_states.clear_bind_groups();
         return;
     };
     let Some(orm_image) = gpu_images.get(&pack.orm) else {
         bind_groups.voxel = None;
-        bind_groups.culling = None;
+        view_states.clear_bind_groups();
         return;
     };
     let Some(emissive_image) = gpu_images.get(&pack.emissive) else {
         bind_groups.voxel = None;
-        bind_groups.culling = None;
+        view_states.clear_bind_groups();
         return;
     };
     let Some(height_image) = gpu_images.get(&pack.height) else {
         bind_groups.voxel = None;
-        bind_groups.culling = None;
+        view_states.clear_bind_groups();
         return;
     };
 
@@ -811,6 +1139,7 @@ fn prepare_voxel_bind_groups(
         &pipeline_cache.get_bind_group_layout(&pipeline.voxel_layout),
         &BindGroupEntries::sequential((
             chunk_meta_binding.clone(),
+            draw_records_binding,
             quad_binding.clone(),
             material_table_binding.clone(),
             &albedo_image.texture_view,
@@ -822,28 +1151,40 @@ fn prepare_voxel_bind_groups(
         )),
     ));
 
-    let Some(culling_uniform_binding) = buffers.culling_uniform.binding() else {
-        bind_groups.culling = None;
-        return;
-    };
-    let Some(indirect_binding) = buffers.indirect_u32.binding() else {
-        bind_groups.culling = None;
-        return;
-    };
-    let depth_pyramid_view = match views.single() {
-        Ok(Some(depth_pyramid)) => &depth_pyramid.all_mips,
-        Ok(None) | Err(_) => &pipeline.culling_fallback_hzb,
-    };
-    bind_groups.culling = Some(render_device.create_bind_group(
-        "voxel_culling_bind_group",
-        &pipeline_cache.get_bind_group_layout(&pipeline.culling_layout),
-        &BindGroupEntries::sequential((
-            culling_uniform_binding.clone(),
-            chunk_meta_binding.clone(),
-            indirect_binding.clone(),
-            depth_pyramid_view,
-        )),
-    ));
+    for (view_entity, view_depth_pyramid) in &views {
+        let view_state = view_states.view_state_mut(view_entity);
+        view_state.bind_groups.view = Some(render_device.create_bind_group(
+            "voxel_view_bind_group",
+            &pipeline_cache.get_bind_group_layout(&pipeline.view_layout),
+            &BindGroupEntries::sequential((view_binding.clone(),)),
+        ));
+
+        let Some(culling_uniform_binding) = view_state.culling_uniform.binding() else {
+            view_state.bind_groups.culling = None;
+            continue;
+        };
+        let Some(indirect_binding) = view_state
+            .indirect_u32(VoxelDrawLayer::Opaque)
+            .and_then(RawBufferVec::binding)
+        else {
+            view_state.bind_groups.culling = None;
+            continue;
+        };
+        let depth_pyramid_view = match view_depth_pyramid {
+            Some(depth_pyramid) => &depth_pyramid.all_mips,
+            None => &pipeline.culling_fallback_hzb,
+        };
+        view_state.bind_groups.culling = Some(render_device.create_bind_group(
+            "voxel_culling_bind_group",
+            &pipeline_cache.get_bind_group_layout(&pipeline.culling_layout),
+            &BindGroupEntries::sequential((
+                culling_uniform_binding.clone(),
+                chunk_meta_binding.clone(),
+                indirect_binding,
+                depth_pyramid_view,
+            )),
+        ));
+    }
 }
 
 fn build_material_table_u32(materials: Option<&ExtractedVoxelMaterialTable>) -> Vec<u32> {
@@ -881,6 +1222,7 @@ struct VoxelOpaquePassNode;
 
 impl ViewNode for VoxelOpaquePassNode {
     type ViewQuery = (
+        Entity,
         &'static ViewTarget,
         &'static ViewDepthTexture,
         &'static ViewUniformOffset,
@@ -891,18 +1233,24 @@ impl ViewNode for VoxelOpaquePassNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (target, depth, view_uniform_offset, msaa): QueryItem<'w, '_, Self::ViewQuery>,
+        (view_entity, target, depth, view_uniform_offset, msaa): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline = world.resource::<VoxelRenderPipeline>();
         let bind_groups = world.resource::<VoxelRenderBindGroups>();
+        let view_states = world.resource::<VoxelViewStates>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let buffers = world.resource::<VoxelGpuBuffers>();
-        if buffers.chunk_count == 0 {
+        let chunk_count = buffers.chunk_count();
+        if chunk_count == 0 {
             return Ok(());
         }
 
-        let Some(view_bg) = &bind_groups.view else {
+        let Some(view_state) = view_states.view_state(view_entity) else {
+            return Ok(());
+        };
+
+        let Some(view_bg) = &view_state.bind_groups.view else {
             return Ok(());
         };
         let Some(voxel_bg) = &bind_groups.voxel else {
@@ -919,7 +1267,7 @@ impl ViewNode for VoxelOpaquePassNode {
         };
 
         if let (Some(culling_bg), Some(cp)) = (
-            bind_groups.culling.as_ref(),
+            view_state.bind_groups.culling.as_ref(),
             pipeline_cache.get_compute_pipeline(pipeline.culling_pipeline),
         ) {
             let mut cull_pass =
@@ -931,7 +1279,7 @@ impl ViewNode for VoxelOpaquePassNode {
                     });
             cull_pass.set_pipeline(cp);
             cull_pass.set_bind_group(0, culling_bg, &[]);
-            let workgroups = buffers.chunk_count.div_ceil(CULL_WORKGROUP_SIZE);
+            let workgroups = chunk_count.div_ceil(CULL_WORKGROUP_SIZE);
             cull_pass.dispatch_workgroups(workgroups, 1, 1);
         }
 
@@ -947,14 +1295,17 @@ impl ViewNode for VoxelOpaquePassNode {
         pass.set_bind_group(0, view_bg, &[view_uniform_offset.offset]);
         pass.set_bind_group(1, voxel_bg, &[]);
 
-        let Some(indirect_buffer) = buffers.indirect_u32.buffer() else {
+        let Some(indirect_buffer) = view_state
+            .indirect_u32(VoxelDrawLayer::Opaque)
+            .and_then(RawBufferVec::buffer)
+        else {
             return Ok(());
         };
 
         if pipeline.supports_multi_draw_indirect {
-            pass.multi_draw_indirect(indirect_buffer, 0, buffers.chunk_count);
+            pass.multi_draw_indirect(indirect_buffer, 0, chunk_count);
         } else {
-            for i in 0..buffers.chunk_count {
+            for i in 0..chunk_count {
                 pass.draw_indirect(indirect_buffer, (i as u64) * 16);
             }
         }
@@ -1003,30 +1354,388 @@ mod tests {
     }
 
     #[test]
-    fn chunk_meta_packing_keeps_expected_stride_and_fields() {
+    fn chunk_meta_v2_layout() {
         let entries = vec![(
             ChunkKey::new(1, -2, 3),
-            ChunkMetaCpu {
+            ChunkMetaV2 {
                 origin: IVec3::new(32, -64, 96),
                 min: IVec3::new(32, -64, 96),
                 max: IVec3::new(64, -32, 128),
                 opaque_offset: 17,
                 opaque_len: 29,
+                cutout_offset: 31,
+                cutout_len: 37,
+                flags: 0xA5A5_0001,
+                reserved0: 0x1111_2222,
+                reserved1: 0x3333_4444,
             },
         )];
         let packed = pack_chunk_meta_u32(&entries);
-        assert_eq!(packed.len(), CHUNK_META_STRIDE_U32);
-        assert_eq!(packed[0], 32i32 as u32);
-        assert_eq!(packed[1], (-64i32) as u32);
-        assert_eq!(packed[2], 96i32 as u32);
-        assert_eq!(packed[3], 17);
-        assert_eq!(packed[4], 32i32 as u32);
-        assert_eq!(packed[5], (-64i32) as u32);
-        assert_eq!(packed[6], 96i32 as u32);
-        assert_eq!(packed[7], 29);
-        assert_eq!(packed[8], 64i32 as u32);
-        assert_eq!(packed[9], (-32i32) as u32);
-        assert_eq!(packed[10], 128i32 as u32);
-        assert_eq!(packed[11], 0);
+        assert_eq!(packed.len(), CHUNK_META_V2_STRIDE_U32);
+        assert_eq!(packed[ChunkMetaV2::ORIGIN_X_OFFSET], 32i32 as u32);
+        assert_eq!(packed[ChunkMetaV2::ORIGIN_Y_OFFSET], (-64i32) as u32);
+        assert_eq!(packed[ChunkMetaV2::ORIGIN_Z_OFFSET], 96i32 as u32);
+        assert_eq!(packed[ChunkMetaV2::OPAQUE_OFFSET_OFFSET], 17);
+        assert_eq!(packed[ChunkMetaV2::MIN_X_OFFSET], 32i32 as u32);
+        assert_eq!(packed[ChunkMetaV2::MIN_Y_OFFSET], (-64i32) as u32);
+        assert_eq!(packed[ChunkMetaV2::MIN_Z_OFFSET], 96i32 as u32);
+        assert_eq!(packed[ChunkMetaV2::OPAQUE_LEN_OFFSET], 29);
+        assert_eq!(packed[ChunkMetaV2::MAX_X_OFFSET], 64i32 as u32);
+        assert_eq!(packed[ChunkMetaV2::MAX_Y_OFFSET], (-32i32) as u32);
+        assert_eq!(packed[ChunkMetaV2::MAX_Z_OFFSET], 128i32 as u32);
+        assert_eq!(packed[ChunkMetaV2::CUTOUT_OFFSET_OFFSET], 31);
+        assert_eq!(packed[ChunkMetaV2::CUTOUT_LEN_OFFSET], 37);
+        assert_eq!(packed[ChunkMetaV2::FLAGS_OFFSET], 0xA5A5_0001);
+        assert_eq!(packed[ChunkMetaV2::RESERVED0_OFFSET], 0x1111_2222);
+        assert_eq!(packed[ChunkMetaV2::RESERVED1_OFFSET], 0x3333_4444);
+    }
+
+    #[test]
+    fn voxel_draw_record_layout() {
+        let record = VoxelDrawRecord {
+            chunk_meta_index: 9,
+            first_instance: 42,
+            layer_mask: 0b01,
+            reserved: 0xABCD_EF01,
+        };
+        let words = record.to_words();
+        assert_eq!(VOXEL_DRAW_RECORD_STRIDE_U32, 4);
+        assert_eq!(words.len(), VOXEL_DRAW_RECORD_STRIDE_U32);
+        assert_eq!(words[VoxelDrawRecord::CHUNK_META_INDEX_OFFSET], 9);
+        assert_eq!(words[VoxelDrawRecord::FIRST_INSTANCE_OFFSET], 42);
+        assert_eq!(words[VoxelDrawRecord::LAYER_MASK_OFFSET], 0b01);
+        assert_eq!(words[VoxelDrawRecord::RESERVED_OFFSET], 0xABCD_EF01);
+    }
+
+    #[test]
+    fn draw_record_identity_is_explicit() {
+        let key_a = ChunkKey::new(0, 0, 0);
+        let key_b = ChunkKey::new(1, 0, 0);
+        let bounds_a = ChunkBounds::from_key(key_a);
+        let bounds_b = ChunkBounds::from_key(key_b);
+        let range_a = ChunkDrawRange {
+            opaque_offset: 3,
+            opaque_len: 2,
+            ..Default::default()
+        };
+        let range_b = ChunkDrawRange {
+            opaque_offset: 17,
+            opaque_len: 4,
+            ..Default::default()
+        };
+
+        let entries = collect_chunk_meta_entries([
+            (&key_b, &bounds_b, &range_b),
+            (&key_a, &bounds_a, &range_a),
+        ]);
+        let draw_records = build_draw_records(&entries);
+
+        assert_eq!(draw_records.len(), 2);
+        assert_eq!(draw_records[0].chunk_meta_index, 0);
+        assert_eq!(draw_records[0].first_instance, 3);
+        assert_eq!(draw_records[1].chunk_meta_index, 1);
+        assert_eq!(draw_records[1].first_instance, 17);
+    }
+
+    #[test]
+    fn indirect_first_instance_matches_quad_offset() {
+        let key = ChunkKey::new(0, 0, 0);
+        let bounds = ChunkBounds::from_key(key);
+        let range = ChunkDrawRange {
+            opaque_offset: 21,
+            opaque_len: 5,
+            ..Default::default()
+        };
+        let entries = collect_chunk_meta_entries([(&key, &bounds, &range)]);
+        let draw_records = pack_draw_records_u32(&build_draw_records(&entries));
+
+        let mut indirect_words = Vec::new();
+        fill_indirect_cpu_fallback(
+            &entries,
+            draw_records.as_slice(),
+            Mat4::IDENTITY,
+            &mut indirect_words,
+        );
+
+        assert_eq!(indirect_words.len(), VOXEL_DRAW_RECORD_STRIDE_U32);
+        assert_eq!(
+            indirect_words[VoxelIndirectArgs::FIRST_INSTANCE_OFFSET],
+            range.opaque_offset
+        );
+    }
+
+    #[test]
+    fn draw_record_identity_survives_resident_reorder() {
+        let key_a = ChunkKey::new(-1, 0, 0);
+        let key_b = ChunkKey::new(0, 0, 0);
+        let key_c = ChunkKey::new(1, 0, 0);
+        let bounds_a = ChunkBounds::from_key(key_a);
+        let bounds_b = ChunkBounds::from_key(key_b);
+        let bounds_c = ChunkBounds::from_key(key_c);
+        let range_a = ChunkDrawRange {
+            opaque_offset: 1,
+            opaque_len: 1,
+            ..Default::default()
+        };
+        let range_b = ChunkDrawRange {
+            opaque_offset: 8,
+            opaque_len: 1,
+            ..Default::default()
+        };
+        let range_c = ChunkDrawRange {
+            opaque_offset: 13,
+            opaque_len: 1,
+            ..Default::default()
+        };
+
+        let entries_abc = collect_chunk_meta_entries([
+            (&key_a, &bounds_a, &range_a),
+            (&key_b, &bounds_b, &range_b),
+            (&key_c, &bounds_c, &range_c),
+        ]);
+        let entries_cba = collect_chunk_meta_entries([
+            (&key_c, &bounds_c, &range_c),
+            (&key_b, &bounds_b, &range_b),
+            (&key_a, &bounds_a, &range_a),
+        ]);
+
+        let records_abc = build_draw_records(&entries_abc);
+        let records_cba = build_draw_records(&entries_cba);
+
+        assert_eq!(records_abc, records_cba);
+        assert_eq!(records_abc[0].chunk_meta_index, 0);
+        assert_eq!(records_abc[1].chunk_meta_index, 1);
+        assert_eq!(records_abc[2].chunk_meta_index, 2);
+    }
+
+    #[test]
+    fn visible_chunk_record_layout() {
+        let record = VisibleChunkRecord {
+            chunk_index: 9,
+            layer_mask: 0b11,
+            draw_record_base: 24,
+            reserved: 0xDEAD_BEEF,
+        };
+        let words = record.to_words();
+        assert_eq!(VISIBLE_CHUNK_RECORD_STRIDE_U32, 4);
+        assert_eq!(words.len(), VISIBLE_CHUNK_RECORD_STRIDE_U32);
+        assert_eq!(words[VisibleChunkRecord::CHUNK_INDEX_OFFSET], 9);
+        assert_eq!(words[VisibleChunkRecord::LAYER_MASK_OFFSET], 0b11);
+        assert_eq!(words[VisibleChunkRecord::DRAW_RECORD_BASE_OFFSET], 24);
+        assert_eq!(words[VisibleChunkRecord::RESERVED_OFFSET], 0xDEAD_BEEF);
+
+        assert_eq!(PER_VIEW_COUNTERS_STRIDE_U32, 4);
+        assert_eq!(per_view_counters_layout::VISIBLE_CHUNK_COUNT_OFFSET, 0);
+        assert_eq!(per_view_counters_layout::FLAGS_OFFSET, 1);
+        assert_eq!(per_view_counters_layout::RESERVED0_OFFSET, 2);
+        assert_eq!(per_view_counters_layout::RESERVED1_OFFSET, 3);
+    }
+
+    #[test]
+    fn collect_chunk_meta_includes_cutout_only_chunks() {
+        let opaque_key = ChunkKey::new(0, 0, 0);
+        let cutout_only_key = ChunkKey::new(1, 0, 0);
+        let empty_key = ChunkKey::new(2, 0, 0);
+        let transparent_only_key = ChunkKey::new(3, 0, 0);
+
+        let opaque_bounds = ChunkBounds::from_key(opaque_key);
+        let cutout_only_bounds = ChunkBounds::from_key(cutout_only_key);
+        let empty_bounds = ChunkBounds::from_key(empty_key);
+        let transparent_only_bounds = ChunkBounds::from_key(transparent_only_key);
+
+        let opaque_range = ChunkDrawRange {
+            opaque_offset: 4,
+            opaque_len: 2,
+            ..Default::default()
+        };
+        let cutout_only_range = ChunkDrawRange {
+            cutout_offset: 8,
+            cutout_len: 5,
+            ..Default::default()
+        };
+        let empty_range = ChunkDrawRange::default();
+        let transparent_only_range = ChunkDrawRange {
+            transparent_offset: 13,
+            transparent_len: 7,
+            ..Default::default()
+        };
+
+        let entries = collect_chunk_meta_entries([
+            (&empty_key, &empty_bounds, &empty_range),
+            (&cutout_only_key, &cutout_only_bounds, &cutout_only_range),
+            (
+                &transparent_only_key,
+                &transparent_only_bounds,
+                &transparent_only_range,
+            ),
+            (&opaque_key, &opaque_bounds, &opaque_range),
+        ]);
+
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].0, opaque_key);
+        assert_eq!(entries[0].1.opaque_offset, 4);
+        assert_eq!(entries[0].1.opaque_len, 2);
+        assert_eq!(entries[0].1.cutout_offset, 0);
+        assert_eq!(entries[0].1.cutout_len, 0);
+
+        assert_eq!(entries[1].0, cutout_only_key);
+        assert_eq!(entries[1].1.opaque_len, 0);
+        assert_eq!(entries[1].1.cutout_offset, 8);
+        assert_eq!(entries[1].1.cutout_len, 5);
+    }
+
+    #[test]
+    fn chunk_meta_sorting_is_stable_by_chunk_key() {
+        let key_a = ChunkKey::new(-2, 1, 7);
+        let key_b = ChunkKey::new(0, 0, 0);
+        let key_c = ChunkKey::new(0, 1, -1);
+
+        let bounds_a = ChunkBounds::from_key(key_a);
+        let bounds_b = ChunkBounds::from_key(key_b);
+        let bounds_c = ChunkBounds::from_key(key_c);
+
+        let range_a = ChunkDrawRange {
+            cutout_offset: 30,
+            cutout_len: 1,
+            ..Default::default()
+        };
+        let range_b = ChunkDrawRange {
+            opaque_offset: 10,
+            opaque_len: 3,
+            ..Default::default()
+        };
+        let range_c = ChunkDrawRange {
+            opaque_offset: 20,
+            opaque_len: 4,
+            cutout_offset: 24,
+            cutout_len: 2,
+            ..Default::default()
+        };
+
+        let entries = collect_chunk_meta_entries([
+            (&key_c, &bounds_c, &range_c),
+            (&key_b, &bounds_b, &range_b),
+            (&key_a, &bounds_a, &range_a),
+        ]);
+
+        let keys: Vec<_> = entries.iter().map(|(key, _)| *key).collect();
+        assert_eq!(keys, vec![key_a, key_b, key_c]);
+        assert_eq!(entries[0].1.origin, key_a.min_world_voxel());
+        assert_eq!(entries[0].1.cutout_offset, 30);
+        assert_eq!(entries[1].1.origin, key_b.min_world_voxel());
+        assert_eq!(entries[1].1.opaque_offset, 10);
+        assert_eq!(entries[2].1.origin, key_c.min_world_voxel());
+        assert_eq!(entries[2].1.opaque_offset, 20);
+        assert_eq!(entries[2].1.cutout_offset, 24);
+    }
+
+    #[test]
+    fn per_view_state() {
+        let view_a = Entity::from_bits(1);
+        let view_b = Entity::from_bits(2);
+        let view_c = Entity::from_bits(3);
+        let mut view_states = VoxelViewStates::default();
+
+        view_states.sync_active_views([view_a, view_b]);
+        assert_eq!(view_states.by_entity.len(), 2);
+        assert!(view_states.view_state(view_a).is_some());
+        assert!(view_states.view_state(view_b).is_some());
+
+        let preserved_state = view_states.view_state_mut(view_b);
+        assert!(resize_indirect_buffer(
+            preserved_state.indirect_u32_mut(VoxelDrawLayer::Opaque),
+            2,
+        ));
+        preserved_state
+            .indirect_u32_mut(VoxelDrawLayer::Opaque)
+            .values_mut()
+            .copy_from_slice(&[6, 7, 8, 9, 10, 11, 12, 13]);
+
+        view_states.sync_active_views([view_b, view_c]);
+
+        assert_eq!(view_states.by_entity.len(), 2);
+        assert!(view_states.view_state(view_a).is_none());
+
+        let preserved_state = view_states.view_state(view_b).expect("view_b kept");
+        assert_eq!(
+            preserved_state
+                .indirect_u32(VoxelDrawLayer::Opaque)
+                .expect("opaque buffer exists")
+                .values(),
+            &[6, 7, 8, 9, 10, 11, 12, 13]
+        );
+
+        let fresh_state = view_states.view_state(view_c).expect("view_c created");
+        assert!(fresh_state.bind_groups.view.is_none());
+        assert!(fresh_state.bind_groups.culling.is_none());
+        assert!(fresh_state.previous_depth_texture.is_none());
+        assert!(fresh_state.previous_hzb_texture.is_none());
+        assert!(fresh_state.visible_chunk_list.is_none());
+        assert!(fresh_state.visible_chunk_counter.is_none());
+        assert!(fresh_state.indirect_u32(VoxelDrawLayer::Opaque).is_some());
+        assert!(fresh_state.indirect_u32(VoxelDrawLayer::Cutout).is_none());
+    }
+
+    #[test]
+    fn resize_reallocates_only_target_view() {
+        let view_a = Entity::from_bits(11);
+        let view_b = Entity::from_bits(22);
+        let mut view_states = VoxelViewStates::default();
+        view_states.sync_active_views([view_a, view_b]);
+
+        {
+            let state_a = view_states.view_state_mut(view_a);
+            assert!(resize_indirect_buffer(
+                state_a.indirect_u32_mut(VoxelDrawLayer::Opaque),
+                1,
+            ));
+        }
+
+        {
+            let state_b = view_states.view_state_mut(view_b);
+            assert!(resize_indirect_buffer(
+                state_b.indirect_u32_mut(VoxelDrawLayer::Opaque),
+                2,
+            ));
+            state_b
+                .indirect_u32_mut(VoxelDrawLayer::Opaque)
+                .values_mut()
+                .copy_from_slice(&[1, 2, 3, 4, 5, 6, 7, 8]);
+        }
+
+        let previous_view_b = view_states
+            .view_state(view_b)
+            .expect("view_b exists")
+            .indirect_u32(VoxelDrawLayer::Opaque)
+            .expect("opaque buffer exists")
+            .values()
+            .to_vec();
+
+        let reallocated = resize_indirect_buffer(
+            view_states
+                .view_state_mut(view_a)
+                .indirect_u32_mut(VoxelDrawLayer::Opaque),
+            5,
+        );
+
+        assert!(reallocated);
+        assert_eq!(
+            view_states
+                .view_state(view_a)
+                .expect("view_a exists")
+                .indirect_u32(VoxelDrawLayer::Opaque)
+                .expect("opaque buffer exists")
+                .len(),
+            20
+        );
+        assert_eq!(
+            view_states
+                .view_state(view_b)
+                .expect("view_b exists")
+                .indirect_u32(VoxelDrawLayer::Opaque)
+                .expect("opaque buffer exists")
+                .values(),
+            previous_view_b.as_slice()
+        );
     }
 }

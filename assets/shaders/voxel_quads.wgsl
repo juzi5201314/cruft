@@ -1,6 +1,19 @@
 #import bevy_render::view::View
 
-const CHUNK_META_STRIDE: u32 = 12u;
+const CHUNK_META_STRIDE: u32 = 16u;
+const CHUNK_META_ORIGIN_X_OFFSET: u32 = 0u;
+const CHUNK_META_OPAQUE_OFFSET_OFFSET: u32 = 3u;
+const CHUNK_META_MIN_X_OFFSET: u32 = 4u;
+const CHUNK_META_OPAQUE_LEN_OFFSET: u32 = 7u;
+const CHUNK_META_MAX_X_OFFSET: u32 = 8u;
+const CHUNK_META_CUTOUT_OFFSET_OFFSET: u32 = 11u;
+const CHUNK_META_CUTOUT_LEN_OFFSET: u32 = 12u;
+const CHUNK_META_FLAGS_OFFSET: u32 = 13u;
+const CHUNK_META_RESERVED0_OFFSET: u32 = 14u;
+const CHUNK_META_RESERVED1_OFFSET: u32 = 15u;
+const DRAW_RECORD_STRIDE: u32 = 4u;
+const DRAW_RECORD_CHUNK_META_INDEX_OFFSET: u32 = 0u;
+const DRAW_RECORD_FIRST_INSTANCE_OFFSET: u32 = 1u;
 
 struct Quad {
     low: u32,
@@ -12,17 +25,19 @@ const FACE_CHANNEL_STRIDE: u32 = 5u;
 
 @group(0) @binding(0) var<uniform> view: View;
 
-// chunk_meta 固定 stride=12*u32：
-// [origin.xyz(i32), opaque_offset(u32), min.xyz(i32), opaque_len(u32), max.xyz(i32), reserved]
+// chunk_meta 固定 stride=16*u32：
+// [origin.xyz(i32), opaque_offset(u32), min.xyz(i32), opaque_len(u32), max.xyz(i32),
+//  cutout_offset(u32), cutout_len(u32), flags(u32), reserved0(u32), reserved1(u32)]
 @group(1) @binding(0) var<storage, read> chunk_meta: array<u32>;
-@group(1) @binding(1) var<storage, read> quads: array<u32>;
-@group(1) @binding(2) var<storage, read> material_table: array<u32>;
-@group(1) @binding(3) var albedo_texture: texture_2d_array<f32>;
-@group(1) @binding(4) var normal_texture: texture_2d_array<f32>;
-@group(1) @binding(5) var orm_texture: texture_2d_array<f32>;
-@group(1) @binding(6) var emissive_texture: texture_2d_array<f32>;
-@group(1) @binding(7) var height_texture: texture_2d_array<f32>;
-@group(1) @binding(8) var array_sampler: sampler;
+@group(1) @binding(1) var<storage, read> draw_records: array<u32>;
+@group(1) @binding(2) var<storage, read> quads: array<u32>;
+@group(1) @binding(3) var<storage, read> material_table: array<u32>;
+@group(1) @binding(4) var albedo_texture: texture_2d_array<f32>;
+@group(1) @binding(5) var normal_texture: texture_2d_array<f32>;
+@group(1) @binding(6) var orm_texture: texture_2d_array<f32>;
+@group(1) @binding(7) var emissive_texture: texture_2d_array<f32>;
+@group(1) @binding(8) var height_texture: texture_2d_array<f32>;
+@group(1) @binding(9) var array_sampler: sampler;
 
 struct VsOut {
     @builtin(position) clip_position: vec4<f32>,
@@ -35,18 +50,27 @@ fn chunk_meta_base(chunk_index: u32) -> u32 {
     return chunk_index * CHUNK_META_STRIDE;
 }
 
+fn draw_record_base(draw_record_index: u32) -> u32 {
+    return draw_record_index * DRAW_RECORD_STRIDE;
+}
+
+fn draw_chunk_meta_index(draw_record_index: u32) -> u32 {
+    let base = draw_record_base(draw_record_index);
+    return draw_records[base + DRAW_RECORD_CHUNK_META_INDEX_OFFSET];
+}
+
+fn draw_first_instance(draw_record_index: u32) -> u32 {
+    let base = draw_record_base(draw_record_index);
+    return draw_records[base + DRAW_RECORD_FIRST_INSTANCE_OFFSET];
+}
+
 fn chunk_origin(chunk_index: u32) -> vec3<f32> {
     let base = chunk_meta_base(chunk_index);
     return vec3<f32>(
-        f32(bitcast<i32>(chunk_meta[base + 0u])),
-        f32(bitcast<i32>(chunk_meta[base + 1u])),
-        f32(bitcast<i32>(chunk_meta[base + 2u])),
+        f32(bitcast<i32>(chunk_meta[base + CHUNK_META_ORIGIN_X_OFFSET + 0u])),
+        f32(bitcast<i32>(chunk_meta[base + CHUNK_META_ORIGIN_X_OFFSET + 1u])),
+        f32(bitcast<i32>(chunk_meta[base + CHUNK_META_ORIGIN_X_OFFSET + 2u])),
     );
-}
-
-fn chunk_quad_base(chunk_index: u32) -> u32 {
-    let base = chunk_meta_base(chunk_index);
-    return chunk_meta[base + 3u];
 }
 
 fn decode_u32(pair_index: u32) -> Quad {
@@ -111,11 +135,18 @@ fn vertex(
     @builtin(vertex_index) global_vertex_index: u32,
     @builtin(instance_index) instance_index: u32,
 ) -> VsOut {
-    // draw 命令把 first_vertex 设为 chunk_index*6，因此可反推 chunk 索引。
-    let chunk_index = global_vertex_index / 6u;
+    let draw_record_index = global_vertex_index / 6u;
+    let chunk_index = draw_chunk_meta_index(draw_record_index);
     let vid = global_vertex_index % 6u;
+    let first_instance = draw_first_instance(draw_record_index);
+    let local_instance = select(
+        instance_index,
+        instance_index - first_instance,
+        instance_index >= first_instance,
+    );
+    let quad_index = first_instance + local_instance;
 
-    let q = decode_u32(chunk_quad_base(chunk_index) + instance_index);
+    let q = decode_u32(quad_index);
 
     let x = f32(q.low & 0x3Fu);
     let y = f32((q.low >> 6u) & 0x3Fu);
