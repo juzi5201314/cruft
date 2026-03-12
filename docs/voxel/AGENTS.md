@@ -32,4 +32,6 @@
 
 ## Implementation status
 
-- 当前 `crates/**` 还未落地 voxel storage/meshing/rendering；实现阶段应以此目录为准对齐，避免“先写代码再补文档”的漂移。
+- `crates/voxel` 已有部分 voxel rendering 实现：自定义 RenderApp / ViewNode / compute culling / indirect draw。
+- 当前实现正按 wave-1 规范（temporal HZB, per-view ownership, Opaque+Cutout only）继续对齐；storage/meshing 仍在实现阶段。
+- 实现阶段应以此规范目录为准对齐，避免“先写代码再补文档”的漂移。

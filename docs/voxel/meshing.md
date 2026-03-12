@@ -39,13 +39,13 @@
 其中 `PackedQuad` 是一个 `u64`（写死布局）：
 
 - 低 32bit（从低到高位）：`x(6) | y(6) | z(6) | w(5) | h(5) | face(3) | reserved(1)`
-- 高 32bit（从低到高位）：`material_key(8) | flags(8) | reserved(16)`
+- 高 32bit（从低到高位）：`material_id(16) | flags(8) | reserved(8)`
 
 位布局（写死）：
 
 ```
 low32  = x | (y<<6) | (z<<12) | (w_minus1<<18) | (h_minus1<<23) | (face<<28) | (reserved1<<31)
-high32 = material_key | (flags<<8) | (reserved<<16)
+high32 = material_id | (flags<<8) | (reserved<<16)
 packed = low32 | (high32<<32)
 ```
 
@@ -54,7 +54,7 @@ packed = low32 | (high32<<32)
 - `x,y,z`：quad 起点（chunk 局部坐标，范围 `0..32`，用于表达正向面的 `+1` 边界）
 - `w,h`：quad 尺寸（范围 `1..32`），编码为 `w_minus1/h_minus1 ∈ 0..31`
 - `face`：6 个方向编码（`0..5`）
-- `material_key`：纹理数组 layer（`0..255`）
+- `material_id`：纹理数组 layer（`0..65535`）
 - `flags`：渲染层/alpha 模式等（与 `rendering.md` 对齐）
 
 ---
@@ -65,7 +65,7 @@ packed = low32 | (high32<<32)
 
 - `render_layer`: `Opaque | Cutout | Transparent`
 - `is_occluder`: bool（是否遮挡邻居面）
-- `material_key: u8`
+- `material_id: u16`
 
 规则（写死）：
 
@@ -115,13 +115,13 @@ packed = low32 | (high32<<32)
 
 - `render_layer`
 - `face`
-- `material_key`
+- `material_id`
 
 合并扫描规则写死为：
 
 - 对每个 face、每个切片，读取 `bits_here`
 - 用 `ctz(bits_here)` 找到下一个候选 bit
-- 扩展矩形时，要求扩展范围内所有候选 bit 的 `material_key` 完全一致
+- 扩展矩形时，要求扩展范围内所有候选 bit 的 `material_id` 完全一致
 - 扩展完成后生成 1 个 `PackedQuad` 并清除覆盖范围内的 bit
 
 ---
