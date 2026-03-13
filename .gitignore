@@ -12,6 +12,7 @@ Cargo.lock
 
 # Dev
 .dev/
+.sisyphus/
 
 .agents/
 AGENTS.local.md
