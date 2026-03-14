@@ -4945,7 +4945,7 @@
       "faces": {
         "all": "glass_surface"
       },
-      "alpha_mode": "blend"
+      "alpha_mode": "cutout"
     },
     "clay_block": {
       "faces": {
