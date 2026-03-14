@@ -1,5 +1,6 @@
 mod factory;
 mod modern_surface;
+mod superflat;
 
 use crate::blocks::BlockStateId;
 use crate::coords::ChunkKey;
@@ -7,6 +8,7 @@ use crate::CHUNK_SIZE;
 
 pub use factory::build_generator;
 pub use modern_surface::ModernSurfaceGenerator;
+pub use superflat::SuperflatGenerator;
 
 use cruft_worldgen_spec::WorldGenPreset;
 

@@ -27,6 +27,7 @@
 
 - 不要写 `NextState<_>`；只通过 `FlowRequest` 触发状态机。
 - 不要把 domain 逻辑塞进 UI：存档 IO/操作逻辑在 `crates/save`，流程转移在 `crates/game_flow`。
+- 新建世界 UI 只负责收集参数（如名字、worldgen preset）并通过 `FlowRequest::StartNewSave` 发出。
 
 ## Gotchas
 

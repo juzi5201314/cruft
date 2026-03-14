@@ -11,6 +11,7 @@ use cruft_game_flow::{
     AppState, BootReadiness, BootReady, FlowRequest, GameStartGeneration, GameStartKind,
     InGameState, PendingGameStart,
 };
+use cruft_worldgen_spec::WorldGenPreset;
 
 use crate::io;
 use crate::types::{LoadedSave, SaveId, SaveMeta, SaveRootDir};
@@ -214,9 +215,10 @@ fn start_ingame_load(
     load_task.0 = Some(pool.spawn(async move {
         let result = match kind {
             GameStartKind::LoadSave(id) => io::load_save(&root, &SaveId(id)),
-            GameStartKind::NewSave { display_name } => {
-                io::create_new_save(&root, display_name, generation)
-            }
+            GameStartKind::NewSave {
+                display_name,
+                generator_preset,
+            } => io::create_new_save(&root, display_name, generation, generator_preset),
         }
         .map_err(|err| err.to_string());
 
@@ -284,7 +286,9 @@ fn scan_index_task(root: PathBuf) -> Result<Arc<[SaveMeta]>, String> {
 fn run_op(root: PathBuf, request: SaveOpRequest) -> SaveOpResult {
     match request {
         SaveOpRequest::CreateNew { display_name } => {
-            match io::create_new_save(&root, display_name, 0).map(|save| save.meta) {
+            match io::create_new_save(&root, display_name, 0, WorldGenPreset::ModernSurface)
+                .map(|save| save.meta)
+            {
                 Ok(meta) => SaveOpResult::Created { meta },
                 Err(err) => SaveOpResult::Failed {
                     message: err.to_string(),

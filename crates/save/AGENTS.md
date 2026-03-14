@@ -23,6 +23,7 @@
 
 - BootLoading：`OnEnter(AppState::BootLoading)` 触发 `start_scan_index`，完成后写入 `BootReady::SAVE_INDEX`。
 - InGame Loading：由 `PendingGameStart` 驱动加载/新建，并在失败时回退到菜单（写 `FlowRequest`）。
+- 新建存档所需的世界生成参数（例如 `WorldGenPreset`）来自 `PendingGameStart`，不要在 `io::create_new_save` 调用点以固定 preset 写死。
 
 ## Testing
 
