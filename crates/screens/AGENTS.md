@@ -12,7 +12,7 @@
 |---|---|---|
 | 插件聚合 | `crates/screens/src/lib.rs` | `ScreensPlugin` 安装 `CruftUiPlugin` + 各 ScreenPlugin |
 | 通用背景 | `crates/screens/src/common.rs` | `spawn_grid_background()` |
-| BootLoading | `crates/screens/src/boot_loading.rs` | 监听 `BootProgress`，更新进度条/文案 |
+| BootLoading | `crates/screens/src/boot_loading.rs` | 监听 `BootProgress` + `ProcTexturesStatus`，更新进度条/文案并显示纹理失败信息 |
 | MainMenu | `crates/screens/src/main_menu.rs` | Start 点击发 `FlowRequest::EnterSaveSelect` |
 | SaveSelect | `crates/screens/src/save_select.rs` | 存档列表 + 模态 + 操作请求（热点文件） |
 | Pause | `crates/screens/src/pause_menu.rs` | 发 `Resume` / `QuitToMainMenu` |

@@ -8,6 +8,7 @@ description.workspace = true
 [dependencies]
 bevy.workspace = true
 cruft-game-flow = { path = "../game_flow" }
+cruft-proc-textures = { path = "../proc_textures" }
 cruft-save = { path = "../save" }
 cruft-ui = { path = "../ui" }
 cruft-voxel = { path = "../voxel" }

@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use bevy::state::state_scoped::DespawnOnExit;
 
 use cruft_game_flow::{AppState, BootProgress};
+use cruft_proc_textures::ProcTexturesStatus;
 use cruft_ui::ui::{UiBuilder, UiEntityCommandsExt};
 
 use crate::common::spawn_grid_background;
@@ -14,8 +15,7 @@ impl Plugin for BootLoadingScreenPlugin {
         app.add_systems(OnEnter(AppState::BootLoading), spawn_boot_loading_screen)
             .add_systems(
                 Update,
-                update_boot_loading_screen
-                    .run_if(resource_changed::<BootProgress>)
+                (update_boot_loading_screen, update_boot_failure_message)
                     .run_if(in_state(AppState::BootLoading)),
             );
     }
@@ -75,10 +75,28 @@ fn update_boot_loading_screen(
     mut bars: Query<&mut cruft_ui::UiProgress, With<BootLoadingProgressBar>>,
     mut labels: Query<&mut Text, With<BootLoadingLabel>>,
 ) {
+    if !progress.is_changed() {
+        return;
+    }
     for mut bar in &mut bars {
         bar.value = progress.value;
     }
     for mut text in &mut labels {
         text.0 = progress.label.clone();
+    }
+}
+
+fn update_boot_failure_message(
+    status: Res<ProcTexturesStatus>,
+    mut labels: Query<&mut Text, With<BootLoadingLabel>>,
+) {
+    if !status.is_changed() {
+        return;
+    }
+
+    if let ProcTexturesStatus::Failed(message) = status.as_ref() {
+        for mut text in &mut labels {
+            text.0 = format!("Texture generation failed: {message}");
+        }
     }
 }
