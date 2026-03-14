@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::*;
 use bevy_state::prelude::*;
+use cruft_worldgen_spec::WorldGenPreset;
 
 /// 顶层应用状态：用于拆分“启动/前台菜单/游戏内”。
 #[derive(States, Default, Clone, Copy, Eq, PartialEq, Hash, Debug)]
@@ -45,7 +46,10 @@ pub struct PendingGameStart {
 #[derive(Debug, Clone)]
 pub enum GameStartKind {
     LoadSave(String),
-    NewSave { display_name: String },
+    NewSave {
+        display_name: String,
+        generator_preset: WorldGenPreset,
+    },
 }
 
 #[derive(Resource, Debug, Default, Clone, Copy)]

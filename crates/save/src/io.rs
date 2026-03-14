@@ -5,7 +5,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use cruft_worldgen_spec::{
-    WorldGenConfig, WorldHeaderV2, WORLD_FORMAT_VERSION_V2, WORLD_HEADER_FILE,
+    WorldGenConfig, WorldGenPreset, WorldHeaderV2, WORLD_FORMAT_VERSION_V2, WORLD_HEADER_FILE,
 };
 use serde_json::Value;
 use time::OffsetDateTime;
@@ -70,6 +70,7 @@ pub fn create_new_save(
     root: &Path,
     display_name: String,
     generation: u64,
+    generator_preset: WorldGenPreset,
 ) -> io::Result<LoadedSave> {
     ensure_root(root)?;
     let id = new_save_id();
@@ -86,7 +87,10 @@ pub fn create_new_save(
     };
 
     let seed = derive_world_seed(display_name.as_bytes(), generation);
-    let generator = WorldGenConfig::modern_surface(seed);
+    let generator = match generator_preset {
+        WorldGenPreset::ModernSurface => WorldGenConfig::modern_surface(seed),
+        WorldGenPreset::Superflat => WorldGenConfig::superflat(seed),
+    };
     let header = WorldHeaderV2::new(Uuid::new_v4().to_string(), now, generator);
 
     write_meta(&dir, &meta)?;

@@ -24,5 +24,6 @@ pub use world::{
     VoxelPlugin, VoxelWorld,
 };
 pub use worldgen::{
-    build_generator, ColumnSurface, GeneratedChunk, ModernSurfaceGenerator, WorldGenerator,
+    build_generator, ColumnSurface, GeneratedChunk, ModernSurfaceGenerator, SuperflatGenerator,
+    WorldGenerator,
 };

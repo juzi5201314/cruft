@@ -28,3 +28,4 @@
 ## Common changes
 
 - 新增流程：扩展 `FlowRequest` → 更新 `reduce()` → 补/改 reducer tests → 在 screens/gameplay/save 等请求源处发消息。
+- 新建世界参数（如世界生成 preset）必须经 `FlowRequest::StartNewSave` → `PendingGameStart` 透传，避免在 save crate 内硬编码。

@@ -4,6 +4,7 @@ use bevy::state::state_scoped::DespawnOnExit;
 use cruft_game_flow::{FlowRequest, FrontEndState};
 use cruft_save::{SaveId, SaveIndex, SaveOpRequest, SaveOpResult};
 use cruft_ui::ui::{UiBuilder, UiEntityCommandsExt};
+use cruft_worldgen_spec::WorldGenPreset;
 
 use crate::common::spawn_grid_background;
 
@@ -37,6 +38,17 @@ impl Plugin for SaveSelectScreenPlugin {
 struct SaveSelectState {
     selected: Option<String>,
     modal: Option<ModalKind>,
+    new_world_preset: WorldGenPreset,
+}
+
+impl Default for SaveSelectState {
+    fn default() -> Self {
+        Self {
+            selected: None,
+            modal: None,
+            new_world_preset: WorldGenPreset::ModernSurface,
+        }
+    }
 }
 
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -63,6 +75,9 @@ struct SaveSelectModalRoot;
 
 #[derive(Component)]
 struct SaveSelectModalTextInput;
+
+#[derive(Component)]
+struct NewWorldPresetChoice(WorldGenPreset);
 
 fn reset_save_select_state(
     mut state: ResMut<SaveSelectState>,
@@ -244,9 +259,27 @@ fn update_selection_styles(
     theme: Res<cruft_ui::UiTheme>,
     state: Res<SaveSelectState>,
     items: Query<(Entity, &SaveEntryId)>,
+    preset_buttons: Query<(Entity, &NewWorldPresetChoice)>,
 ) {
     for (entity, id) in &items {
         if state.selected.as_deref() == Some(id.0.as_str()) {
+            commands
+                .entity(entity)
+                .insert(cruft_ui::UiButtonStyleOverride {
+                    bg: Some(theme.accent),
+                    fg: None,
+                    border: None,
+                    radius: None,
+                });
+        } else {
+            commands
+                .entity(entity)
+                .remove::<cruft_ui::UiButtonStyleOverride>();
+        }
+    }
+
+    for (entity, choice) in &preset_buttons {
+        if state.new_world_preset == choice.0 {
             commands
                 .entity(entity)
                 .insert(cruft_ui::UiButtonStyleOverride {
@@ -312,6 +345,37 @@ fn spawn_new_modal(commands: &mut Commands, root: Entity, theme: &cruft_ui::UiTh
                 input.insert(SaveSelectModalTextInput);
                 input.observe(on_new_submit);
                 input.observe(on_modal_cancel);
+
+                ui.spawn(Node {
+                    height: Val::Px(12.0),
+                    ..default()
+                });
+                ui.label("Generator");
+                ui.spawn(Node {
+                    height: Val::Px(8.0),
+                    ..default()
+                });
+                ui.spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(8.0),
+                    ..default()
+                })
+                .with_children(|p| {
+                    let mut ui = UiBuilder::new(p, theme);
+                    ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
+                        ui.label("Overworld");
+                    })
+                    .insert(NewWorldPresetChoice(WorldGenPreset::ModernSurface))
+                    .click(on_select_modern_surface)
+                    .size(Val::Px(148.0), Val::Px(36.0));
+
+                    ui.button(cruft_ui::UiButtonVariant::Secondary, |ui| {
+                        ui.label("Superflat");
+                    })
+                    .insert(NewWorldPresetChoice(WorldGenPreset::Superflat))
+                    .click(on_select_superflat)
+                    .size(Val::Px(148.0), Val::Px(36.0));
+                });
 
                 ui.spawn(Node {
                     height: Val::Px(16.0),
@@ -546,7 +610,10 @@ fn on_new_confirm_clicked(
     inputs: Query<&cruft_ui::UiTextInput, With<SaveSelectModalTextInput>>,
 ) {
     if let Some(name) = read_modal_input(&inputs) {
-        flow.write(FlowRequest::StartNewSave { display_name: name });
+        flow.write(FlowRequest::StartNewSave {
+            display_name: name,
+            generator_preset: state.new_world_preset,
+        });
         state.modal = None;
     }
 }
@@ -560,10 +627,21 @@ fn on_new_submit(
     if let Ok(input) = inputs.get(ev.entity) {
         let name = input.value.trim().to_string();
         if !name.is_empty() {
-            flow.write(FlowRequest::StartNewSave { display_name: name });
+            flow.write(FlowRequest::StartNewSave {
+                display_name: name,
+                generator_preset: state.new_world_preset,
+            });
             state.modal = None;
         }
     }
+}
+
+fn on_select_modern_surface(_ev: On<cruft_ui::UiClick>, mut state: ResMut<SaveSelectState>) {
+    state.new_world_preset = WorldGenPreset::ModernSurface;
+}
+
+fn on_select_superflat(_ev: On<cruft_ui::UiClick>, mut state: ResMut<SaveSelectState>) {
+    state.new_world_preset = WorldGenPreset::Superflat;
 }
 
 fn on_rename_confirm_clicked(

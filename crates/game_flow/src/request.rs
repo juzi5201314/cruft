@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::*;
 use bevy_state::prelude::*;
+use cruft_worldgen_spec::WorldGenPreset;
 
 use crate::state::{
     AppState, FrontEndState, GameStartGeneration, GameStartKind, InGameState, PendingGameStart,
@@ -11,7 +12,10 @@ pub enum FlowRequest {
     EnterFrontEnd,
     EnterSaveSelect,
     StartLoadSave(String),
-    StartNewSave { display_name: String },
+    StartNewSave {
+        display_name: String,
+        generator_preset: WorldGenPreset,
+    },
     FinishGameLoading,
     TogglePause,
     Resume,
@@ -65,11 +69,15 @@ pub fn reduce(snapshot: FlowSnapshot, request: &FlowRequest) -> FlowActions {
                 // InGameState 会随 SubStates 默认进入 Loading。
             }
         }
-        StartNewSave { display_name } => {
+        StartNewSave {
+            display_name,
+            generator_preset,
+        } => {
             if snapshot.app == FrontEnd {
                 out.bump_generation = true;
                 out.start_game = Some(GameStartKind::NewSave {
                     display_name: display_name.clone(),
+                    generator_preset: *generator_preset,
                 });
                 out.set_app = Some(InGame);
             }
@@ -254,6 +262,35 @@ mod tests {
         assert!(a.bump_generation);
         assert_eq!(a.set_app, Some(AppState::InGame));
         assert!(matches!(a.start_game, Some(GameStartKind::LoadSave(_))));
+    }
+
+    #[test]
+    fn start_new_keeps_generator_preset() {
+        let s = snap(
+            AppState::FrontEnd,
+            Some(FrontEndState::SaveSelect),
+            None,
+            41,
+        );
+        let a = reduce(
+            s,
+            &FlowRequest::StartNewSave {
+                display_name: "world-a".into(),
+                generator_preset: WorldGenPreset::Superflat,
+            },
+        );
+
+        assert!(a.bump_generation);
+        assert_eq!(a.set_app, Some(AppState::InGame));
+        let Some(GameStartKind::NewSave {
+            display_name,
+            generator_preset,
+        }) = a.start_game
+        else {
+            panic!("expected new save start");
+        };
+        assert_eq!(display_name, "world-a");
+        assert_eq!(generator_preset, WorldGenPreset::Superflat);
     }
 
     #[test]
