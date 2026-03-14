@@ -4651,6 +4651,324 @@
         "mode": "derive_from_height",
         "strength": 0.1
       }
+    },
+    "oak_log_top_surface": {
+      "seed": 16001,
+      "signals": {
+        "ring_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 15.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 300
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "ring_noise",
+          "palette": [
+            "#a38356",
+            "#8a6e45",
+            "#7e6543",
+            "#6b5435"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "ring_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "birch_log_top_surface": {
+      "seed": 16002,
+      "signals": {
+        "ring_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 15.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 300
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "ring_noise",
+          "palette": [
+            "#e3d1ae",
+            "#d2c19e",
+            "#b8a888",
+            "#9e8e72"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "ring_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "spruce_log_top_surface": {
+      "seed": 16003,
+      "signals": {
+        "ring_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 15.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 300
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "ring_noise",
+          "palette": [
+            "#876644",
+            "#785a3c",
+            "#664b30",
+            "#5e452d"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "ring_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "jungle_log_top_surface": {
+      "seed": 16004,
+      "signals": {
+        "ring_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 15.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 300
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "ring_noise",
+          "palette": [
+            "#a37a51",
+            "#8f6943",
+            "#7a5937",
+            "#66492c"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "ring_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "acacia_log_top_surface": {
+      "seed": 16005,
+      "signals": {
+        "ring_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 15.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 300
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "ring_noise",
+          "palette": [
+            "#a35f3b",
+            "#8a4f30",
+            "#734127",
+            "#613620"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "ring_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "dark_oak_log_top_surface": {
+      "seed": 16006,
+      "signals": {
+        "ring_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 15.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 300
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "ring_noise",
+          "palette": [
+            "#523a23",
+            "#402d1b",
+            "#302114",
+            "#21160d"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "ring_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
     }
   },
   "textures": {
@@ -4688,7 +5006,9 @@
     },
     "oak_log_block": {
       "faces": {
-        "all": "oak_log_surface"
+        "top": "oak_log_top_surface",
+        "bottom": "oak_log_top_surface",
+        "sides": "oak_log_surface"
       }
     },
     "oak_planks_block": {
@@ -4703,7 +5023,9 @@
     },
     "birch_log_block": {
       "faces": {
-        "all": "birch_log_surface"
+        "top": "birch_log_top_surface",
+        "bottom": "birch_log_top_surface",
+        "sides": "birch_log_surface"
       }
     },
     "birch_planks_block": {
@@ -4718,7 +5040,9 @@
     },
     "spruce_log_block": {
       "faces": {
-        "all": "spruce_log_surface"
+        "top": "spruce_log_top_surface",
+        "bottom": "spruce_log_top_surface",
+        "sides": "spruce_log_surface"
       }
     },
     "spruce_planks_block": {
@@ -4733,7 +5057,9 @@
     },
     "jungle_log_block": {
       "faces": {
-        "all": "jungle_log_surface"
+        "top": "jungle_log_top_surface",
+        "bottom": "jungle_log_top_surface",
+        "sides": "jungle_log_surface"
       }
     },
     "jungle_planks_block": {
@@ -4748,7 +5074,9 @@
     },
     "acacia_log_block": {
       "faces": {
-        "all": "acacia_log_surface"
+        "top": "acacia_log_top_surface",
+        "bottom": "acacia_log_top_surface",
+        "sides": "acacia_log_surface"
       }
     },
     "acacia_planks_block": {
@@ -4763,7 +5091,9 @@
     },
     "dark_oak_log_block": {
       "faces": {
-        "all": "dark_oak_log_surface"
+        "top": "dark_oak_log_top_surface",
+        "bottom": "dark_oak_log_top_surface",
+        "sides": "dark_oak_log_surface"
       }
     },
     "dark_oak_planks_block": {
@@ -4945,7 +5275,7 @@
       "faces": {
         "all": "glass_surface"
       },
-      "alpha_mode": "cutout"
+      "alpha_mode": "blend"
     },
     "clay_block": {
       "faces": {
