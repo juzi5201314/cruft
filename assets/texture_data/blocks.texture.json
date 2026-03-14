@@ -5019,7 +5019,8 @@
     "oak_leaves_block": {
       "faces": {
         "all": "oak_leaves_surface"
-      }
+      },
+      "alpha_mode": "cutout"
     },
     "birch_log_block": {
       "faces": {
@@ -5036,7 +5037,8 @@
     "birch_leaves_block": {
       "faces": {
         "all": "birch_leaves_surface"
-      }
+      },
+      "alpha_mode": "cutout"
     },
     "spruce_log_block": {
       "faces": {
@@ -5053,7 +5055,8 @@
     "spruce_leaves_block": {
       "faces": {
         "all": "spruce_leaves_surface"
-      }
+      },
+      "alpha_mode": "cutout"
     },
     "jungle_log_block": {
       "faces": {
@@ -5070,7 +5073,8 @@
     "jungle_leaves_block": {
       "faces": {
         "all": "jungle_leaves_surface"
-      }
+      },
+      "alpha_mode": "cutout"
     },
     "acacia_log_block": {
       "faces": {
@@ -5087,7 +5091,8 @@
     "acacia_leaves_block": {
       "faces": {
         "all": "acacia_leaves_surface"
-      }
+      },
+      "alpha_mode": "cutout"
     },
     "dark_oak_log_block": {
       "faces": {
@@ -5104,7 +5109,8 @@
     "dark_oak_leaves_block": {
       "faces": {
         "all": "dark_oak_leaves_surface"
-      }
+      },
+      "alpha_mode": "cutout"
     },
     "coal_ore_block": {
       "faces": {
@@ -5275,7 +5281,7 @@
       "faces": {
         "all": "glass_surface"
       },
-      "alpha_mode": "blend"
+      "alpha_mode": "cutout"
     },
     "clay_block": {
       "faces": {
