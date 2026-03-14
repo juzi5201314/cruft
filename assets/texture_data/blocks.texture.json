@@ -47,11 +47,19 @@
             "basis": "value",
             "fractal": "fbm",
             "scale": 3.0,
-            "stretch": [1.0, 1.0, 1.0],
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
             "octaves": 3,
             "lacunarity": 2.0,
             "gain": 0.5,
-            "offset": [0.0, 0.0, 0.0],
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
             "seed_offset": 0
           }
         }
@@ -60,13 +68,21 @@
         "albedo": {
           "mode": "palette",
           "source": "base_noise",
-          "palette": ["#4A321F", "#5C3D26", "#6E4B30", "#81583A"]
+          "palette": [
+            "#4A321F",
+            "#5C3D26",
+            "#6E4B30",
+            "#81583A"
+          ]
         },
         "height": {
           "mode": "signal",
           "source": "base_noise",
           "remap": {
-            "range": [0.42, 0.58]
+            "range": [
+              0.42,
+              0.58
+            ]
           }
         },
         "roughness": {
@@ -100,11 +116,19 @@
             "basis": "value",
             "fractal": "fbm",
             "scale": 2.8,
-            "stretch": [1.0, 1.0, 1.0],
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
             "octaves": 3,
             "lacunarity": 2.0,
             "gain": 0.5,
-            "offset": [0.0, 0.0, 0.0],
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
             "seed_offset": 0
           }
         }
@@ -113,13 +137,21 @@
         "albedo": {
           "mode": "palette",
           "source": "base_noise",
-          "palette": ["#305E24", "#3E742C", "#558C3A", "#78AA4E"]
+          "palette": [
+            "#305E24",
+            "#3E742C",
+            "#558C3A",
+            "#78AA4E"
+          ]
         },
         "height": {
           "mode": "signal",
           "source": "base_noise",
           "remap": {
-            "range": [0.45, 0.64]
+            "range": [
+              0.45,
+              0.64
+            ]
           }
         },
         "roughness": {
@@ -153,11 +185,19 @@
             "basis": "value",
             "fractal": "fbm",
             "scale": 3.0,
-            "stretch": [1.0, 1.0, 1.0],
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
             "octaves": 3,
             "lacunarity": 2.0,
             "gain": 0.5,
-            "offset": [0.0, 0.0, 0.0],
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
             "seed_offset": 0
           }
         },
@@ -167,11 +207,19 @@
             "basis": "value",
             "fractal": "fbm",
             "scale": 2.8,
-            "stretch": [1.0, 1.0, 1.0],
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
             "octaves": 3,
             "lacunarity": 2.0,
             "gain": 0.5,
-            "offset": [0.0, 0.0, 0.0],
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
             "seed_offset": 23
           }
         },
@@ -181,11 +229,19 @@
             "basis": "value",
             "fractal": "none",
             "scale": 4.0,
-            "stretch": [1.0, 1.0, 1.0],
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
             "octaves": 1,
             "lacunarity": 2.0,
             "gain": 0.5,
-            "offset": [0.0, 0.0, 0.0],
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
             "seed_offset": 97
           }
         }
@@ -194,13 +250,21 @@
         "albedo": {
           "mode": "palette",
           "source": "dirt_noise",
-          "palette": ["#4A321F", "#5C3D26", "#6E4B30", "#81583A"]
+          "palette": [
+            "#4A321F",
+            "#5C3D26",
+            "#6E4B30",
+            "#81583A"
+          ]
         },
         "height": {
           "mode": "signal",
           "source": "dirt_noise",
           "remap": {
-            "range": [0.42, 0.58]
+            "range": [
+              0.42,
+              0.58
+            ]
           }
         }
       },
@@ -211,7 +275,7 @@
             "mode": "axis_band",
             "axis": "v",
             "from": 0.0,
-            "to": 0.30,
+            "to": 0.3,
             "falloff": 0.05,
             "invert": false,
             "jitter": {
@@ -223,13 +287,21 @@
           "albedo": {
             "mode": "palette",
             "source": "grass_noise",
-            "palette": ["#305E24", "#3E742C", "#558C3A", "#78AA4E"]
+            "palette": [
+              "#305E24",
+              "#3E742C",
+              "#558C3A",
+              "#78AA4E"
+            ]
           },
           "height": {
             "mode": "signal",
             "source": "grass_noise",
             "remap": {
-              "range": [0.50, 0.66]
+              "range": [
+                0.5,
+                0.66
+              ]
             }
           },
           "blend": {
@@ -252,11 +324,19 @@
             "basis": "gradient",
             "fractal": "ridged",
             "scale": 3.2,
-            "stretch": [1.0, 1.0, 1.0],
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
             "octaves": 4,
             "lacunarity": 2.0,
             "gain": 0.5,
-            "offset": [0.0, 0.0, 0.0],
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
             "seed_offset": 0
           }
         }
@@ -265,13 +345,21 @@
         "albedo": {
           "mode": "palette",
           "source": "base_noise",
-          "palette": ["#61656C", "#737A84", "#878F9B", "#A0A7B3"]
+          "palette": [
+            "#61656C",
+            "#737A84",
+            "#878F9B",
+            "#A0A7B3"
+          ]
         },
         "height": {
           "mode": "signal",
           "source": "base_noise",
           "remap": {
-            "range": [0.40, 0.60]
+            "range": [
+              0.4,
+              0.6
+            ]
           }
         },
         "roughness": {
@@ -293,11 +381,19 @@
             "basis": "value",
             "fractal": "fbm",
             "scale": 2.6,
-            "stretch": [1.0, 1.0, 1.0],
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
             "octaves": 3,
             "lacunarity": 2.0,
             "gain": 0.5,
-            "offset": [0.0, 0.0, 0.0],
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
             "seed_offset": 0
           }
         }
@@ -306,13 +402,21 @@
         "albedo": {
           "mode": "palette",
           "source": "base_noise",
-          "palette": ["#B9AA70", "#C8B87C", "#DAC988", "#E8D796"]
+          "palette": [
+            "#B9AA70",
+            "#C8B87C",
+            "#DAC988",
+            "#E8D796"
+          ]
         },
         "height": {
           "mode": "signal",
           "source": "base_noise",
           "remap": {
-            "range": [0.46, 0.58]
+            "range": [
+              0.46,
+              0.58
+            ]
           }
         },
         "roughness": {
@@ -334,11 +438,19 @@
             "basis": "gradient",
             "fractal": "fbm",
             "scale": 2.4,
-            "stretch": [1.0, 1.0, 1.0],
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
             "octaves": 4,
             "lacunarity": 2.0,
             "gain": 0.5,
-            "offset": [0.0, 0.0, 0.0],
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
             "seed_offset": 0
           }
         }
@@ -347,13 +459,21 @@
         "albedo": {
           "mode": "palette",
           "source": "base_noise",
-          "palette": ["#706E6A", "#7E7C78", "#8E8C88", "#9E9C97"]
+          "palette": [
+            "#706E6A",
+            "#7E7C78",
+            "#8E8C88",
+            "#9E9C97"
+          ]
         },
         "height": {
           "mode": "signal",
           "source": "base_noise",
           "remap": {
-            "range": [0.44, 0.62]
+            "range": [
+              0.44,
+              0.62
+            ]
           }
         }
       },
@@ -371,11 +491,19 @@
             "basis": "value",
             "fractal": "fbm",
             "scale": 1.6,
-            "stretch": [1.0, 1.0, 1.0],
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
             "octaves": 3,
             "lacunarity": 2.0,
             "gain": 0.5,
-            "offset": [0.0, 0.0, 0.0],
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
             "seed_offset": 0
           }
         }
@@ -384,13 +512,21 @@
         "albedo": {
           "mode": "palette",
           "source": "base_noise",
-          "palette": ["#E0E2E8", "#ECEEF4", "#F6F8FC", "#FFFFFF"]
+          "palette": [
+            "#E0E2E8",
+            "#ECEEF4",
+            "#F6F8FC",
+            "#FFFFFF"
+          ]
         },
         "height": {
           "mode": "signal",
           "source": "base_noise",
           "remap": {
-            "range": [0.48, 0.64]
+            "range": [
+              0.48,
+              0.64
+            ]
           }
         },
         "roughness": {
@@ -401,6 +537,4437 @@
       "normal": {
         "mode": "derive_from_height",
         "strength": 0.9
+      }
+    },
+    "oak_log_surface": {
+      "seed": 12001,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "ridged",
+            "scale": 3.5,
+            "stretch": [
+              1.0,
+              5.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#594A32",
+            "#4b3f2a",
+            "#3b3020",
+            "#2b2317"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "oak_planks_surface": {
+      "seed": 12002,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 2.8,
+            "stretch": [
+              1.0,
+              4.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#b59667",
+            "#9c7f55",
+            "#8a6e45",
+            "#7e6543"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "oak_leaves_surface": {
+      "seed": 12003,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 2,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#2a591e",
+            "#214a17",
+            "#1b3c13",
+            "#142e0e"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        },
+        "opacity": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.0,
+              1.2
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.5
+      }
+    },
+    "birch_log_surface": {
+      "seed": 12004,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "ridged",
+            "scale": 3.5,
+            "stretch": [
+              1.0,
+              5.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#ded7ce",
+            "#c4beb6",
+            "#b1aba3",
+            "#948f88"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "birch_planks_surface": {
+      "seed": 12005,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 2.8,
+            "stretch": [
+              1.0,
+              4.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#e3d1ae",
+            "#d2c19e",
+            "#b8a888",
+            "#9e8e72"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "birch_leaves_surface": {
+      "seed": 12006,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 2,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#639c43",
+            "#4b7a32",
+            "#355922",
+            "#223d14"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        },
+        "opacity": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.0,
+              1.2
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.5
+      }
+    },
+    "spruce_log_surface": {
+      "seed": 12007,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "ridged",
+            "scale": 3.5,
+            "stretch": [
+              1.0,
+              5.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#473016",
+            "#3b2712",
+            "#26190a",
+            "#1a1005"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "spruce_planks_surface": {
+      "seed": 12008,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 2.8,
+            "stretch": [
+              1.0,
+              4.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#876644",
+            "#785a3c",
+            "#664b30",
+            "#5e452d"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "spruce_leaves_surface": {
+      "seed": 12009,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 2,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#2c5934",
+            "#214227",
+            "#122615",
+            "#09170c"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        },
+        "opacity": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.0,
+              1.2
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.5
+      }
+    },
+    "jungle_log_surface": {
+      "seed": 12010,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "ridged",
+            "scale": 3.5,
+            "stretch": [
+              1.0,
+              5.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#6b5120",
+            "#544018",
+            "#403011",
+            "#2b200b"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "jungle_planks_surface": {
+      "seed": 12011,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 2.8,
+            "stretch": [
+              1.0,
+              4.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#b88a5e",
+            "#a37a51",
+            "#8f6943",
+            "#7a5937"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "jungle_leaves_surface": {
+      "seed": 12012,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 2,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#367817",
+            "#285c11",
+            "#1b400a",
+            "#102605"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        },
+        "opacity": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.0,
+              1.2
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.5
+      }
+    },
+    "acacia_log_surface": {
+      "seed": 12013,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "ridged",
+            "scale": 3.5,
+            "stretch": [
+              1.0,
+              5.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#6b6559",
+            "#524d43",
+            "#38342d",
+            "#1f1d19"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "acacia_planks_surface": {
+      "seed": 12014,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 2.8,
+            "stretch": [
+              1.0,
+              4.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#ba6e45",
+            "#a35f3b",
+            "#8a4f30",
+            "#734127"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "acacia_leaves_surface": {
+      "seed": 12015,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 2,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#52781e",
+            "#3f5e16",
+            "#2f450f",
+            "#1f2e0a"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        },
+        "opacity": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.0,
+              1.2
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.5
+      }
+    },
+    "dark_oak_log_surface": {
+      "seed": 12016,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "ridged",
+            "scale": 3.5,
+            "stretch": [
+              1.0,
+              5.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#382b1c",
+            "#291f14",
+            "#1c140c",
+            "#0f0b06"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "dark_oak_planks_surface": {
+      "seed": 12017,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 2.8,
+            "stretch": [
+              1.0,
+              4.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#523a23",
+            "#402d1b",
+            "#302114",
+            "#21160d"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "dark_oak_leaves_surface": {
+      "seed": 12018,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 2,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#1f4211",
+            "#152e0b",
+            "#0d1c06",
+            "#060f02"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        },
+        "opacity": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.0,
+              1.2
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.5
+      }
+    },
+    "coal_ore_surface": {
+      "seed": 12019,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#61656C",
+            "#737A84",
+            "#878F9B",
+            "#A0A7B3"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "iron_ore_surface": {
+      "seed": 12020,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#61656C",
+            "#737A84",
+            "#878F9B",
+            "#A0A7B3"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "gold_ore_surface": {
+      "seed": 12021,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#61656C",
+            "#737A84",
+            "#878F9B",
+            "#A0A7B3"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "diamond_ore_surface": {
+      "seed": 12022,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#61656C",
+            "#737A84",
+            "#878F9B",
+            "#A0A7B3"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "redstone_ore_surface": {
+      "seed": 12023,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#61656C",
+            "#737A84",
+            "#878F9B",
+            "#A0A7B3"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "emerald_ore_surface": {
+      "seed": 12024,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#61656C",
+            "#737A84",
+            "#878F9B",
+            "#A0A7B3"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "lapis_ore_surface": {
+      "seed": 12025,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#61656C",
+            "#737A84",
+            "#878F9B",
+            "#A0A7B3"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "copper_ore_surface": {
+      "seed": 12026,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#61656C",
+            "#737A84",
+            "#878F9B",
+            "#A0A7B3"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "deepslate_coal_ore_surface": {
+      "seed": 12027,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#414141",
+            "#363636",
+            "#2e2e2e",
+            "#242424"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "deepslate_iron_ore_surface": {
+      "seed": 12028,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#414141",
+            "#363636",
+            "#2e2e2e",
+            "#242424"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "deepslate_gold_ore_surface": {
+      "seed": 12029,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#414141",
+            "#363636",
+            "#2e2e2e",
+            "#242424"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "deepslate_diamond_ore_surface": {
+      "seed": 12030,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#414141",
+            "#363636",
+            "#2e2e2e",
+            "#242424"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "deepslate_redstone_ore_surface": {
+      "seed": 12031,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#414141",
+            "#363636",
+            "#2e2e2e",
+            "#242424"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "deepslate_emerald_ore_surface": {
+      "seed": 12032,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#414141",
+            "#363636",
+            "#2e2e2e",
+            "#242424"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "deepslate_lapis_ore_surface": {
+      "seed": 12033,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#414141",
+            "#363636",
+            "#2e2e2e",
+            "#242424"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "deepslate_copper_ore_surface": {
+      "seed": 12034,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#414141",
+            "#363636",
+            "#2e2e2e",
+            "#242424"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "netherrack_surface": {
+      "seed": 12035,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "gradient",
+            "fractal": "ridged",
+            "scale": 2.4,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 4,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#7a1e1e",
+            "#631717",
+            "#4d1111",
+            "#380b0b"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.2
+      }
+    },
+    "soul_sand_surface": {
+      "seed": 12036,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 2.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#5c4536",
+            "#4d3a2e",
+            "#403025",
+            "#33261d"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "soul_soil_surface": {
+      "seed": 12037,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 2.5,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#4d372b",
+            "#3f2e24",
+            "#30231b",
+            "#211812"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "nether_quartz_ore_surface": {
+      "seed": 12038,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#7a1e1e",
+            "#631717",
+            "#4d1111",
+            "#380b0b"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "nether_gold_ore_surface": {
+      "seed": 12039,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#7a1e1e",
+            "#631717",
+            "#4d1111",
+            "#380b0b"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "cobblestone_surface": {
+      "seed": 12040,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.5,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#6b7078",
+            "#5d6168",
+            "#4f5359",
+            "#42464a"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "mossy_cobblestone_surface": {
+      "seed": 12041,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.2,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#6b7078",
+            "#5d6168",
+            "#4f5359",
+            "#42464a"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "diorite_surface": {
+      "seed": 12042,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "gradient",
+            "fractal": "ridged",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 4,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#eef0f5",
+            "#e0e2e8",
+            "#d2d4d9",
+            "#c3c5c9"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.2
+      }
+    },
+    "andesite_surface": {
+      "seed": 12043,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "gradient",
+            "fractal": "ridged",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 4,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#8c929c",
+            "#7b818a",
+            "#6b7178",
+            "#5b6066"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.2
+      }
+    },
+    "granite_surface": {
+      "seed": 12044,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "gradient",
+            "fractal": "ridged",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 4,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#a6705c",
+            "#916250",
+            "#7a5243",
+            "#634336"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.2
+      }
+    },
+    "sandstone_surface": {
+      "seed": 12045,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "gradient",
+            "fractal": "ridged",
+            "scale": 3.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 4,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#e3d4a3",
+            "#dacc9c",
+            "#ccc091",
+            "#bfb488"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.2
+      }
+    },
+    "obsidian_surface": {
+      "seed": 12046,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "gradient",
+            "fractal": "ridged",
+            "scale": 2.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 4,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#16111c",
+            "#100c14",
+            "#0b080d",
+            "#060407"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.2
+      }
+    },
+    "bedrock_surface": {
+      "seed": 12047,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "gradient",
+            "fractal": "ridged",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 4,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#454545",
+            "#3a3a3a",
+            "#2e2e2e",
+            "#212121"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.2
+      }
+    },
+    "deepslate_surface": {
+      "seed": 12048,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "gradient",
+            "fractal": "ridged",
+            "scale": 3.8,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 4,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#414141",
+            "#363636",
+            "#2e2e2e",
+            "#242424"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.2
+      }
+    },
+    "end_stone_surface": {
+      "seed": 12049,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "gradient",
+            "fractal": "ridged",
+            "scale": 3.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 4,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#ebedaa",
+            "#dbde9b",
+            "#cbcf8c",
+            "#bcc27f"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.2
+      }
+    },
+    "bricks_surface": {
+      "seed": 12050,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.5,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#a64c3c",
+            "#964536",
+            "#853d2f",
+            "#733428"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "stone_bricks_surface": {
+      "seed": 12051,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.5,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#757b85",
+            "#666b73",
+            "#585d63",
+            "#4b4f54"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "glass_surface": {
+      "seed": 12052,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#bbe0e8",
+            "#a9d5e0",
+            "#98c9d6",
+            "#88bdcc"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        },
+        "opacity": {
+          "mode": "constant",
+          "value": 0.3
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "clay_surface": {
+      "seed": 12053,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 1.5,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#9da8bd",
+            "#8f99ad",
+            "#808a9c",
+            "#727a8a"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "mycelium_surface": {
+      "seed": 12054,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 2.8,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#806e7f",
+            "#6f606e",
+            "#5e515e",
+            "#4d424d"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "podzol_surface": {
+      "seed": 12055,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 2.8,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#594024",
+            "#4a351e",
+            "#3b2a18",
+            "#2c2012"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "white_wool_surface": {
+      "seed": 12056,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#ebedf0",
+            "#dbdee3",
+            "#ccd1d6",
+            "#bdc2c9"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "black_wool_surface": {
+      "seed": 12057,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#1f1f21",
+            "#141417",
+            "#0a0a0d",
+            "#000003"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "red_wool_surface": {
+      "seed": 12058,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#a82929",
+            "#912323",
+            "#7a1d1d",
+            "#611717"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "tnt_surface": {
+      "seed": 12059,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#f02916",
+            "#e32412",
+            "#c92010",
+            "#b01c0e"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      }
+    },
+    "bookshelf_surface": {
+      "seed": 12060,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 3.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        },
+        "book_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 6.0,
+            "stretch": [
+              10.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 200
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#b59667",
+            "#9c7f55",
+            "#8a6e45",
+            "#7e6543"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 1.0
+      },
+      "layers": [
+        {
+          "name": "books",
+          "mask": {
+            "mode": "axis_band",
+            "axis": "v",
+            "from": 0.2,
+            "to": 0.8,
+            "falloff": 0.05,
+            "invert": false,
+            "jitter": {
+              "amount": 0.0,
+              "source": "book_noise"
+            }
+          },
+          "strength": 1.0,
+          "albedo": {
+            "mode": "palette",
+            "source": "book_noise",
+            "palette": [
+              "#a83232",
+              "#32a852",
+              "#323aa8",
+              "#a89a32"
+            ]
+          },
+          "height": {
+            "mode": "signal",
+            "source": "book_noise",
+            "remap": {
+              "range": [
+                0.5,
+                0.7
+              ]
+            }
+          },
+          "blend": {
+            "albedo": "mix",
+            "height": "max"
+          }
+        }
+      ]
+    },
+    "sponge_surface": {
+      "seed": 12061,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "fbm",
+            "scale": 2.5,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 3,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#dbdd44",
+            "#c7c93e",
+            "#b5b838",
+            "#a3a633"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "base_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "white_terracotta_surface": {
+      "seed": 13001,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#d1b2a1",
+            "#d1b2a1",
+            "#d1b2a1",
+            "#d1b2a1"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "orange_terracotta_surface": {
+      "seed": 13002,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#a15325",
+            "#a15325",
+            "#a15325",
+            "#a15325"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "magenta_terracotta_surface": {
+      "seed": 13003,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#95576c",
+            "#95576c",
+            "#95576c",
+            "#95576c"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "light_blue_terracotta_surface": {
+      "seed": 13004,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#706c8a",
+            "#706c8a",
+            "#706c8a",
+            "#706c8a"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "yellow_terracotta_surface": {
+      "seed": 13005,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#ba8524",
+            "#ba8524",
+            "#ba8524",
+            "#ba8524"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "lime_terracotta_surface": {
+      "seed": 13006,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#677535",
+            "#677535",
+            "#677535",
+            "#677535"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "pink_terracotta_surface": {
+      "seed": 13007,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#a14d4e",
+            "#a14d4e",
+            "#a14d4e",
+            "#a14d4e"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "gray_terracotta_surface": {
+      "seed": 13008,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 4.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#392923",
+            "#392923",
+            "#392923",
+            "#392923"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "white_concrete_surface": {
+      "seed": 13009,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 0.5,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#cfd5d6",
+            "#cfd5d6",
+            "#cfd5d6",
+            "#cfd5d6"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "orange_concrete_surface": {
+      "seed": 13010,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 0.5,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#e06100",
+            "#e06100",
+            "#e06100",
+            "#e06100"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "magenta_concrete_surface": {
+      "seed": 13011,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 0.5,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#a9309f",
+            "#a9309f",
+            "#a9309f",
+            "#a9309f"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "light_blue_concrete_surface": {
+      "seed": 13012,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 0.5,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#2389c6",
+            "#2389c6",
+            "#2389c6",
+            "#2389c6"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "yellow_concrete_surface": {
+      "seed": 13013,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 0.5,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#f0af15",
+            "#f0af15",
+            "#f0af15",
+            "#f0af15"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "lime_concrete_surface": {
+      "seed": 13014,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 0.5,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#5ea918",
+            "#5ea918",
+            "#5ea918",
+            "#5ea918"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "pink_concrete_surface": {
+      "seed": 13015,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 0.5,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#d5658e",
+            "#d5658e",
+            "#d5658e",
+            "#d5658e"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "gray_concrete_surface": {
+      "seed": 13016,
+      "signals": {
+        "base_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 0.5,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 0
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "base_noise",
+          "palette": [
+            "#36393d",
+            "#36393d",
+            "#36393d",
+            "#36393d"
+          ]
+        },
+        "height": {
+          "mode": "constant",
+          "value": 0.5
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.1
+      }
+    },
+    "oak_log_top_surface": {
+      "seed": 16001,
+      "signals": {
+        "ring_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 15.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 300
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "ring_noise",
+          "palette": [
+            "#a38356",
+            "#8a6e45",
+            "#7e6543",
+            "#6b5435"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "ring_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "birch_log_top_surface": {
+      "seed": 16002,
+      "signals": {
+        "ring_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 15.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 300
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "ring_noise",
+          "palette": [
+            "#e3d1ae",
+            "#d2c19e",
+            "#b8a888",
+            "#9e8e72"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "ring_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "spruce_log_top_surface": {
+      "seed": 16003,
+      "signals": {
+        "ring_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 15.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 300
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "ring_noise",
+          "palette": [
+            "#876644",
+            "#785a3c",
+            "#664b30",
+            "#5e452d"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "ring_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "jungle_log_top_surface": {
+      "seed": 16004,
+      "signals": {
+        "ring_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 15.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 300
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "ring_noise",
+          "palette": [
+            "#a37a51",
+            "#8f6943",
+            "#7a5937",
+            "#66492c"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "ring_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "acacia_log_top_surface": {
+      "seed": 16005,
+      "signals": {
+        "ring_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 15.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 300
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "ring_noise",
+          "palette": [
+            "#a35f3b",
+            "#8a4f30",
+            "#734127",
+            "#613620"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "ring_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
+      }
+    },
+    "dark_oak_log_top_surface": {
+      "seed": 16006,
+      "signals": {
+        "ring_noise": {
+          "kind": "noise",
+          "noise": {
+            "basis": "value",
+            "fractal": "none",
+            "scale": 15.0,
+            "stretch": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "octaves": 1,
+            "lacunarity": 2.0,
+            "gain": 0.5,
+            "offset": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "seed_offset": 300
+          }
+        }
+      },
+      "base": {
+        "albedo": {
+          "mode": "palette",
+          "source": "ring_noise",
+          "palette": [
+            "#523a23",
+            "#402d1b",
+            "#302114",
+            "#21160d"
+          ]
+        },
+        "height": {
+          "mode": "signal",
+          "source": "ring_noise",
+          "remap": {
+            "range": [
+              0.4,
+              0.6
+            ]
+          }
+        }
+      },
+      "normal": {
+        "mode": "derive_from_height",
+        "strength": 0.8
       }
     }
   },
@@ -435,6 +5002,410 @@
     "snow_block": {
       "faces": {
         "all": "snow_surface"
+      }
+    },
+    "oak_log_block": {
+      "faces": {
+        "top": "oak_log_top_surface",
+        "bottom": "oak_log_top_surface",
+        "sides": "oak_log_surface"
+      }
+    },
+    "oak_planks_block": {
+      "faces": {
+        "all": "oak_planks_surface"
+      }
+    },
+    "oak_leaves_block": {
+      "faces": {
+        "all": "oak_leaves_surface"
+      },
+      "alpha_mode": "cutout"
+    },
+    "birch_log_block": {
+      "faces": {
+        "top": "birch_log_top_surface",
+        "bottom": "birch_log_top_surface",
+        "sides": "birch_log_surface"
+      }
+    },
+    "birch_planks_block": {
+      "faces": {
+        "all": "birch_planks_surface"
+      }
+    },
+    "birch_leaves_block": {
+      "faces": {
+        "all": "birch_leaves_surface"
+      },
+      "alpha_mode": "cutout"
+    },
+    "spruce_log_block": {
+      "faces": {
+        "top": "spruce_log_top_surface",
+        "bottom": "spruce_log_top_surface",
+        "sides": "spruce_log_surface"
+      }
+    },
+    "spruce_planks_block": {
+      "faces": {
+        "all": "spruce_planks_surface"
+      }
+    },
+    "spruce_leaves_block": {
+      "faces": {
+        "all": "spruce_leaves_surface"
+      },
+      "alpha_mode": "cutout"
+    },
+    "jungle_log_block": {
+      "faces": {
+        "top": "jungle_log_top_surface",
+        "bottom": "jungle_log_top_surface",
+        "sides": "jungle_log_surface"
+      }
+    },
+    "jungle_planks_block": {
+      "faces": {
+        "all": "jungle_planks_surface"
+      }
+    },
+    "jungle_leaves_block": {
+      "faces": {
+        "all": "jungle_leaves_surface"
+      },
+      "alpha_mode": "cutout"
+    },
+    "acacia_log_block": {
+      "faces": {
+        "top": "acacia_log_top_surface",
+        "bottom": "acacia_log_top_surface",
+        "sides": "acacia_log_surface"
+      }
+    },
+    "acacia_planks_block": {
+      "faces": {
+        "all": "acacia_planks_surface"
+      }
+    },
+    "acacia_leaves_block": {
+      "faces": {
+        "all": "acacia_leaves_surface"
+      },
+      "alpha_mode": "cutout"
+    },
+    "dark_oak_log_block": {
+      "faces": {
+        "top": "dark_oak_log_top_surface",
+        "bottom": "dark_oak_log_top_surface",
+        "sides": "dark_oak_log_surface"
+      }
+    },
+    "dark_oak_planks_block": {
+      "faces": {
+        "all": "dark_oak_planks_surface"
+      }
+    },
+    "dark_oak_leaves_block": {
+      "faces": {
+        "all": "dark_oak_leaves_surface"
+      },
+      "alpha_mode": "cutout"
+    },
+    "coal_ore_block": {
+      "faces": {
+        "all": "coal_ore_surface"
+      }
+    },
+    "iron_ore_block": {
+      "faces": {
+        "all": "iron_ore_surface"
+      }
+    },
+    "gold_ore_block": {
+      "faces": {
+        "all": "gold_ore_surface"
+      }
+    },
+    "diamond_ore_block": {
+      "faces": {
+        "all": "diamond_ore_surface"
+      }
+    },
+    "redstone_ore_block": {
+      "faces": {
+        "all": "redstone_ore_surface"
+      }
+    },
+    "emerald_ore_block": {
+      "faces": {
+        "all": "emerald_ore_surface"
+      }
+    },
+    "lapis_ore_block": {
+      "faces": {
+        "all": "lapis_ore_surface"
+      }
+    },
+    "copper_ore_block": {
+      "faces": {
+        "all": "copper_ore_surface"
+      }
+    },
+    "deepslate_coal_ore_block": {
+      "faces": {
+        "all": "deepslate_coal_ore_surface"
+      }
+    },
+    "deepslate_iron_ore_block": {
+      "faces": {
+        "all": "deepslate_iron_ore_surface"
+      }
+    },
+    "deepslate_gold_ore_block": {
+      "faces": {
+        "all": "deepslate_gold_ore_surface"
+      }
+    },
+    "deepslate_diamond_ore_block": {
+      "faces": {
+        "all": "deepslate_diamond_ore_surface"
+      }
+    },
+    "deepslate_redstone_ore_block": {
+      "faces": {
+        "all": "deepslate_redstone_ore_surface"
+      }
+    },
+    "deepslate_emerald_ore_block": {
+      "faces": {
+        "all": "deepslate_emerald_ore_surface"
+      }
+    },
+    "deepslate_lapis_ore_block": {
+      "faces": {
+        "all": "deepslate_lapis_ore_surface"
+      }
+    },
+    "deepslate_copper_ore_block": {
+      "faces": {
+        "all": "deepslate_copper_ore_surface"
+      }
+    },
+    "netherrack_block": {
+      "faces": {
+        "all": "netherrack_surface"
+      }
+    },
+    "soul_sand_block": {
+      "faces": {
+        "all": "soul_sand_surface"
+      }
+    },
+    "soul_soil_block": {
+      "faces": {
+        "all": "soul_soil_surface"
+      }
+    },
+    "nether_quartz_ore_block": {
+      "faces": {
+        "all": "nether_quartz_ore_surface"
+      }
+    },
+    "nether_gold_ore_block": {
+      "faces": {
+        "all": "nether_gold_ore_surface"
+      }
+    },
+    "cobblestone_block": {
+      "faces": {
+        "all": "cobblestone_surface"
+      }
+    },
+    "mossy_cobblestone_block": {
+      "faces": {
+        "all": "mossy_cobblestone_surface"
+      }
+    },
+    "diorite_block": {
+      "faces": {
+        "all": "diorite_surface"
+      }
+    },
+    "andesite_block": {
+      "faces": {
+        "all": "andesite_surface"
+      }
+    },
+    "granite_block": {
+      "faces": {
+        "all": "granite_surface"
+      }
+    },
+    "sandstone_block": {
+      "faces": {
+        "all": "sandstone_surface"
+      }
+    },
+    "obsidian_block": {
+      "faces": {
+        "all": "obsidian_surface"
+      }
+    },
+    "bedrock_block": {
+      "faces": {
+        "all": "bedrock_surface"
+      }
+    },
+    "deepslate_block": {
+      "faces": {
+        "all": "deepslate_surface"
+      }
+    },
+    "end_stone_block": {
+      "faces": {
+        "all": "end_stone_surface"
+      }
+    },
+    "bricks_block": {
+      "faces": {
+        "all": "bricks_surface"
+      }
+    },
+    "stone_bricks_block": {
+      "faces": {
+        "all": "stone_bricks_surface"
+      }
+    },
+    "glass_block": {
+      "faces": {
+        "all": "glass_surface"
+      },
+      "alpha_mode": "cutout"
+    },
+    "clay_block": {
+      "faces": {
+        "all": "clay_surface"
+      }
+    },
+    "mycelium_block": {
+      "faces": {
+        "all": "mycelium_surface"
+      }
+    },
+    "podzol_block": {
+      "faces": {
+        "all": "podzol_surface"
+      }
+    },
+    "white_wool_block": {
+      "faces": {
+        "all": "white_wool_surface"
+      }
+    },
+    "black_wool_block": {
+      "faces": {
+        "all": "black_wool_surface"
+      }
+    },
+    "red_wool_block": {
+      "faces": {
+        "all": "red_wool_surface"
+      }
+    },
+    "tnt_block": {
+      "faces": {
+        "all": "tnt_surface"
+      }
+    },
+    "bookshelf_block": {
+      "faces": {
+        "all": "bookshelf_surface"
+      }
+    },
+    "sponge_block": {
+      "faces": {
+        "all": "sponge_surface"
+      }
+    },
+    "white_terracotta_block": {
+      "faces": {
+        "all": "white_terracotta_surface"
+      }
+    },
+    "orange_terracotta_block": {
+      "faces": {
+        "all": "orange_terracotta_surface"
+      }
+    },
+    "magenta_terracotta_block": {
+      "faces": {
+        "all": "magenta_terracotta_surface"
+      }
+    },
+    "light_blue_terracotta_block": {
+      "faces": {
+        "all": "light_blue_terracotta_surface"
+      }
+    },
+    "yellow_terracotta_block": {
+      "faces": {
+        "all": "yellow_terracotta_surface"
+      }
+    },
+    "lime_terracotta_block": {
+      "faces": {
+        "all": "lime_terracotta_surface"
+      }
+    },
+    "pink_terracotta_block": {
+      "faces": {
+        "all": "pink_terracotta_surface"
+      }
+    },
+    "gray_terracotta_block": {
+      "faces": {
+        "all": "gray_terracotta_surface"
+      }
+    },
+    "white_concrete_block": {
+      "faces": {
+        "all": "white_concrete_surface"
+      }
+    },
+    "orange_concrete_block": {
+      "faces": {
+        "all": "orange_concrete_surface"
+      }
+    },
+    "magenta_concrete_block": {
+      "faces": {
+        "all": "magenta_concrete_surface"
+      }
+    },
+    "light_blue_concrete_block": {
+      "faces": {
+        "all": "light_blue_concrete_surface"
+      }
+    },
+    "yellow_concrete_block": {
+      "faces": {
+        "all": "yellow_concrete_surface"
+      }
+    },
+    "lime_concrete_block": {
+      "faces": {
+        "all": "lime_concrete_surface"
+      }
+    },
+    "pink_concrete_block": {
+      "faces": {
+        "all": "pink_concrete_surface"
+      }
+    },
+    "gray_concrete_block": {
+      "faces": {
+        "all": "gray_concrete_surface"
       }
     }
   },

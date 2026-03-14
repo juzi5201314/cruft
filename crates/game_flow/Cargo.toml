@@ -10,3 +10,4 @@ bevy_app.workspace = true
 bevy_ecs.workspace = true
 bevy_state.workspace = true
 bitflags.workspace = true
+cruft-worldgen-spec = { version = "0.1.0", path = "../worldgen_spec" }

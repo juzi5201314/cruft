@@ -16,3 +16,8 @@ Cargo.lock
 
 .agents/
 AGENTS.local.md
+exported_textures/
+summary_textures/
+summary_textures_2/
+*.html
+*.py

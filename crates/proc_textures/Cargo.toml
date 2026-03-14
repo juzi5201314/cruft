@@ -15,3 +15,7 @@ serde_json.workspace = true
 blake3 = "1.8"
 png = "0.17"
 serde_path_to_error = "0.1"
+
+[[bin]]
+name = "export_textures"
+path = "src/bin/export_textures.rs"
